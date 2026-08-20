@@ -254,6 +254,27 @@
         transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
+      #quietHint {
+        position: absolute;
+        left: 0;
+        top: 60px;
+        color: var(--rune);
+        text-shadow: 0 1px 6px #000;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+          transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        pointer-events: none;
+      }
+      #quietHint.show {
+        opacity: 1;
+        transform: none;
+      }
+      #quietHint b {
+        color: var(--cream);
+        font-weight: 700;
+      }
+
       #tally {
         display: flex;
         gap: 16px;
@@ -547,6 +568,7 @@
         <div class="meters">
           <div id="chatLabel">Chat energy · <b id="phaseName">New moon</b></div>
           <div id="track"><div id="fill"></div></div>
+          <div id="quietHint" class="cap">Type <b>!fate</b></div>
         </div>
 
         <div id="tally">
@@ -646,8 +668,49 @@
       const fill = document.getElementById("fill");
       const phaseName = document.getElementById("phaseName");
       const moonWrap = document.getElementById("moonWrap");
+      const quietHint = document.getElementById("quietHint");
       let beats = [],
         fullUntil = 0;
+
+      /* ── quiet-chat hint ── */
+      const QUIET_THRESHOLD = 0.25;
+      const QUIET_HOLD_MS = 30000;
+      const QUIET_GRACE_MS = 45000;
+      let quietStart = null,
+        hintVisible = false;
+
+      function hintSuppressed() {
+        return oracle.classList.contains("on") || pollEl.classList.contains("on");
+      }
+      function showHint() {
+        hintVisible = true;
+        quietHint.classList.add("show");
+      }
+      function hideHint() {
+        hintVisible = false;
+        quietHint.classList.remove("show");
+      }
+      function updateHint(p, now) {
+        if (p >= QUIET_THRESHOLD) {
+          if (hintVisible) hideHint();
+          quietStart = null;
+          return;
+        }
+        if (quietStart === null) quietStart = now;
+
+        const suppressed = hintSuppressed();
+        if (hintVisible) {
+          if (suppressed) {
+            hideHint();
+            quietStart = now; // 30s timer restarts from zero
+          }
+          return;
+        }
+        const pastGrace = now - t0 >= QUIET_GRACE_MS;
+        if (pastGrace && !suppressed && now - quietStart >= QUIET_HOLD_MS) {
+          showHint();
+        }
+      }
 
       function ping() {
         beats.push(Date.now());
@@ -661,6 +724,7 @@
         shadow.setAttribute("cx", 26 + p * 40); // slide the shadow off → waxing
         fill.style.width = p * 100 + "%";
         phaseName.textContent = PHASES[Math.min(4, Math.floor(p * 4.999))];
+        updateHint(p, now);
 
         if (p >= 1 && now > fullUntil) {
           fullUntil = now + 20000;
