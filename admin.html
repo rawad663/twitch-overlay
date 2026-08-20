@@ -165,6 +165,62 @@
         line-height: 1.5;
         margin-top: 9px;
       }
+
+      /* ── diagnostics ── */
+      .drow {
+        display: flex;
+        gap: 10px;
+        padding: 6px 0;
+        border-top: 1px solid rgba(169, 123, 255, 0.12);
+        font-size: 12.5px;
+      }
+      .drow:first-child {
+        border-top: 0;
+      }
+      .drow .k {
+        color: var(--dim);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-size: 11px;
+        flex: 0 0 42%;
+        padding-top: 1px;
+      }
+      .drow .v {
+        flex: 1;
+        word-break: break-word;
+      }
+      .v.yes {
+        color: var(--good);
+      }
+      .v.no {
+        color: var(--bad);
+      }
+      .verdict {
+        margin-top: 11px;
+        padding: 10px 11px;
+        border-radius: 3px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--line);
+      }
+      button {
+        margin-top: 10px;
+        background: linear-gradient(90deg, var(--deep), var(--violet));
+        color: var(--cream);
+        border: 0;
+        border-radius: 2px;
+        padding: 8px 15px;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 11.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      button:hover {
+        filter: brightness(1.15);
+      }
     </style>
   </head>
   <body>
@@ -185,6 +241,13 @@
           different browser and shares no storage with OBS. For phone or remote
           control, use the <code>!brb</code> / <code>!afk</code> chat commands.
         </div>
+      </section>
+
+      <section>
+        <h2>Diagnostics</h2>
+        <div id="diag"></div>
+        <div id="verdict" class="verdict"></div>
+        <button id="copyDiag" type="button">Copy diagnostics</button>
       </section>
     </div>
 
@@ -356,6 +419,134 @@
       }
       setInterval(render, 1000);
       render();
+
+      /* ═══════════════════ DIAGNOSTICS ═══════════════════
+         Separates the two failure modes that look identical from the outside:
+         storage isolated between dock and source (bus can never work) versus
+         storage shared but messaging not arriving (usually a stale source
+         cache still running pre-bus code). */
+      const diagEl = document.getElementById("diag");
+      const verdictEl = document.getElementById("verdict");
+      let lastDiag = "";
+
+      function diagnose() {
+        const d = [];
+
+        const hasBC = typeof BroadcastChannel !== "undefined";
+        d.push(["BroadcastChannel", hasBC ? "supported" : "UNSUPPORTED", hasBC]);
+
+        let lsOk = false;
+        try {
+          localStorage.setItem("rawad-diag-probe", "1");
+          lsOk = localStorage.getItem("rawad-diag-probe") === "1";
+          localStorage.removeItem("rawad-diag-probe");
+        } catch (e) {}
+        d.push(["localStorage", lsOk ? "read/write ok" : "BLOCKED", lsOk]);
+
+        // written by every overlay source every 2s, outside the message bus
+        let presence = null,
+          presenceAge = null;
+        try {
+          const raw = localStorage.getItem("rawad-presence");
+          if (raw) {
+            presence = JSON.parse(raw);
+            presenceAge = Math.round((Date.now() - presence.ts) / 1000);
+          }
+        } catch (e) {}
+
+        if (presence) {
+          const fresh = presenceAge < 8;
+          d.push([
+            "Source presence",
+            presence.role +
+              "/" +
+              presence.mode +
+              " · build " +
+              (presence.build || "pre-bus") +
+              " · " +
+              presenceAge +
+              "s ago",
+            fresh,
+          ]);
+        } else {
+          d.push(["Source presence", "none found", false]);
+        }
+
+        // any rawad-* keys at all tells us whether we share a namespace
+        let keys = [];
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.indexOf("rawad-") === 0) keys.push(k);
+          }
+        } catch (e) {}
+        d.push(["Shared keys", keys.length ? keys.join(", ") : "none", !!keys.length]);
+
+        // has the bus ever carried anything from another context?
+        d.push([
+          "Bus messages seen",
+          String(Bus.seen.length),
+          Bus.seen.length > 0,
+        ]);
+        d.push(["Sources answering", String(sources.size), sources.size > 0]);
+
+        diagEl.innerHTML = d
+          .map(
+            ([k, v, ok]) =>
+              '<div class="drow"><span class="k">' +
+              esc(k) +
+              '</span><span class="v ' +
+              (ok ? "yes" : "no") +
+              '">' +
+              esc(v) +
+              "</span></div>"
+          )
+          .join("");
+
+        let verdict;
+        if (sources.size > 0) {
+          verdict = "Working — the panel and your sources are talking.";
+        } else if (!lsOk) {
+          verdict =
+            "localStorage is blocked in this dock, so nothing can work. Check that the dock URL is https (not a local file).";
+        } else if (presence && presenceAge < 8) {
+          verdict =
+            "Storage IS shared (a source is writing presence right now) but bus messages aren't arriving. The sources are likely running cached pre-bus code — right-click each browser source → Refresh cache of current page.";
+        } else if (presence) {
+          verdict =
+            "Storage is shared, but the last source presence is " +
+            presenceAge +
+            "s old — that source has stopped or is running old code. Refresh cache on each browser source.";
+        } else if (keys.length) {
+          verdict =
+            "Storage is shared with something (found " +
+            keys.join(", ") +
+            ") but no source presence. Your sources are running cached code from before the bus existed — right-click each browser source → Refresh cache of current page.";
+        } else {
+          verdict =
+            "No shared keys at all. Either no overlay source is running, or this dock does not share storage with browser sources. Refresh cache on the sources first; if this stays empty, the transport needs to move to obs-websocket.";
+        }
+        verdictEl.textContent = verdict;
+
+        lastDiag =
+          d.map(([k, v]) => k + ": " + v).join("\n") +
+          "\nVerdict: " +
+          verdict +
+          "\nUA: " +
+          navigator.userAgent;
+      }
+      setInterval(diagnose, 1000);
+      diagnose();
+
+      document.getElementById("copyDiag").addEventListener("click", (e) => {
+        navigator.clipboard.writeText(lastDiag).then(
+          () => {
+            e.target.textContent = "Copied!";
+            setTimeout(() => (e.target.textContent = "Copy diagnostics"), 1500);
+          },
+          () => {}
+        );
+      });
     </script>
   </body>
 </html>

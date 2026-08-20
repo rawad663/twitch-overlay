@@ -1044,6 +1044,7 @@
          breaking one or another between docks and sources:
            1. BroadcastChannel  2. storage events  3. polling the same key    */
       const BUS_KEY = "rawad-control-msg";
+      const BUILD = "bus-1"; // bumped when the bus contract changes; shown in admin diagnostics
       const Bus = {
         id: Math.random().toString(36).slice(2),
         ch: null,
@@ -2669,6 +2670,27 @@
       Bus.on("ping", busHello);
       setInterval(busHello, 2000);
       busHello();
+
+      /* A plain localStorage marker, independent of the message bus. If the
+         admin dock can read this, OBS shares storage between docks and sources
+         and any failure is in the messaging; if it can't, storage is isolated
+         and the bus can never work. That distinction is what the panel's
+         diagnostics section reports. */
+      function busPresence() {
+        try {
+          localStorage.setItem(
+            "rawad-presence",
+            JSON.stringify({
+              role: SCENE ? "scene" : "hud",
+              mode: MODE || "hud",
+              build: BUILD,
+              ts: Date.now(),
+            })
+          );
+        } catch (e) {}
+      }
+      setInterval(busPresence, 2000);
+      busPresence();
 
       /* ═══════════════════ DEMO ═══════════════════ */
       if (DEMO) {
