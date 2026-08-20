@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>RAWAD — Stream Overlay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@300;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ═══════════════════════════════════════════════════════════════
+   RAWAD OVERLAY — design tokens
+   violet    #7A2FF2   the brush swoosh under the wordmark
+   deep      #3D0F8A   shadow side of the swoosh
+   rune      #A97BFF   the thin tick marks / "GAME ON" rail text
+   cream     #F3EEE4   the brush wordmark
+   ember     #E8A33D   the castle sunset — reserved for gains only
+   ═══════════════════════════════════════════════════════════════ */
+      :root {
+        --violet: #7a2ff2;
+        --deep: #3d0f8a;
+        --rune: #a97bff;
+        --cream: #f3eee4;
+        --ember: #e8a33d;
+        --ink: #0a0612;
+        --dim: rgba(243, 238, 228, 0.42);
+        --glow: 0 0 18px rgba(122, 47, 242, 0.55);
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font-family: "Rajdhani", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      body.bg {
+        background: radial-gradient(
+            120% 90% at 30% 20%,
+            #241634 0%,
+            #0a0612 60%
+          ),
+          #0a0612;
+      }
+
+      #stage {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1920px;
+        height: 1080px;
+        transform-origin: top left;
+      }
+
+      .num {
+        font-family: "Barlow Condensed", sans-serif;
+        font-variant-numeric: tabular-nums;
+      }
+      .cap {
+        text-transform: uppercase;
+        letter-spacing: 0.34em;
+        font-weight: 600;
+      }
+
+      /* ───────────────────────── LEFT RAIL ───────────────────────── */
+      #rail {
+        position: absolute;
+        left: 26px;
+        top: 132px;
+        width: 56px;
+        height: 680px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        opacity: 0;
+        animation: railIn 1.1s 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @keyframes railIn {
+        to {
+          opacity: 1;
+        }
+      }
+      #rail .hair {
+        width: 1px;
+        flex: 1;
+        background: linear-gradient(
+          to bottom,
+          transparent,
+          rgba(169, 123, 255, 0.55) 18%,
+          rgba(169, 123, 255, 0.55) 82%,
+          transparent
+        );
+      }
+      #rail .ticks {
+        position: absolute;
+        left: 27px;
+        top: 0;
+        height: 100%;
+        width: 14px;
+      }
+      #rail .ticks i {
+        position: absolute;
+        left: 0;
+        width: 9px;
+        height: 1px;
+        background: var(--rune);
+        opacity: 0.7;
+      }
+      .glyph {
+        width: 24px;
+        height: 24px;
+        fill: var(--violet);
+        filter: drop-shadow(var(--glow));
+      }
+      #railName {
+        writing-mode: vertical-rl;
+        font-size: 15px;
+        color: var(--cream);
+        letter-spacing: 0.46em;
+        text-transform: uppercase;
+        font-weight: 600;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+      }
+      #clock {
+        writing-mode: vertical-rl;
+        font-size: 19px;
+        color: var(--rune);
+        letter-spacing: 0.22em;
+        opacity: 0.85;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+      }
+      #crosshair {
+        width: 34px;
+        height: 34px;
+      }
+      #crosshair circle,
+      #crosshair line {
+        stroke: var(--rune);
+        fill: none;
+        stroke-width: 1;
+      }
+      #crosshair .core {
+        fill: var(--violet);
+        stroke: none;
+      }
+
+      /* ───────────────────── TOP STRIP (safe lane) ───────────────────── */
+      /* Sits between PoE's buff icons (ends ~x502) and the map info text (~x1050) */
+      #strip {
+        position: absolute;
+        left: 520px;
+        top: 16px;
+        width: 520px;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        opacity: 0;
+        transform: translateY(-12px);
+        animation: stripIn 0.9s 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @keyframes stripIn {
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      #moonWrap {
+        position: relative;
+        width: 52px;
+        height: 52px;
+        flex: 0 0 52px;
+      }
+      #moonRing {
+        position: absolute;
+        inset: -6px;
+        opacity: 0;
+        transform: scale(0.85);
+      }
+      #moonRing path {
+        fill: none;
+        stroke: var(--violet);
+        stroke-width: 3;
+        stroke-linecap: round;
+      }
+      #moonWrap.full #moonRing {
+        animation: flare 1.6s ease-out;
+      }
+      @keyframes flare {
+        0% {
+          opacity: 0;
+          transform: scale(0.85) rotate(-8deg);
+        }
+        30% {
+          opacity: 1;
+          transform: scale(1.06) rotate(2deg);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.3) rotate(10deg);
+        }
+      }
+      #moonWrap.full #moonSvg {
+        filter: drop-shadow(0 0 14px rgba(232, 163, 61, 0.85));
+      }
+
+      .meters {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        min-width: 0;
+      }
+      #chatLabel {
+        font-size: 11.5px;
+        color: var(--dim);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        font-weight: 600;
+        white-space: nowrap;
+        text-shadow: 0 1px 6px #000;
+      }
+      #chatLabel b {
+        color: var(--cream);
+        font-weight: 700;
+      }
+      #track {
+        height: 3px;
+        background: rgba(243, 238, 228, 0.14);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      #fill {
+        height: 100%;
+        width: 0;
+        border-radius: 2px;
+        background: linear-gradient(
+          90deg,
+          var(--deep),
+          var(--violet) 70%,
+          var(--rune)
+        );
+        box-shadow: 0 0 10px rgba(122, 47, 242, 0.8);
+        transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      #tally {
+        display: flex;
+        gap: 16px;
+        flex: 0 0 auto;
+      }
+      .stat {
+        text-align: center;
+        min-width: 34px;
+      }
+      .stat .v {
+        display: block;
+        font-size: 25px;
+        line-height: 0.9;
+        color: var(--cream);
+        font-weight: 700;
+        text-shadow: 0 2px 8px #000;
+      }
+      .stat .k {
+        display: block;
+        font-size: 9px;
+        color: var(--dim);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-top: 3px;
+      }
+      .stat.hit .v {
+        animation: pop 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes pop {
+        0% {
+          transform: scale(1);
+        }
+        30% {
+          transform: scale(1.5);
+          color: var(--ember);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      /* ─────────────────── ORACLE BANNER (bottom centre) ─────────────────── */
+      #oracle {
+        position: absolute;
+        left: 470px;
+        top: 690px;
+        width: 560px;
+        transform-origin: top center;
+        pointer-events: none;
+        opacity: 0;
+        transform: scaleY(0);
+      }
+      #oracle.on {
+        animation: unfurl 9.4s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+      }
+      @keyframes unfurl {
+        0% {
+          opacity: 0;
+          transform: scaleY(0);
+        }
+        8% {
+          opacity: 1;
+          transform: scaleY(1);
+        }
+        88% {
+          opacity: 1;
+          transform: scaleY(1);
+        }
+        100% {
+          opacity: 0;
+          transform: scaleY(0);
+        }
+      }
+      #oracle .rod {
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--rune) 12%,
+          var(--cream) 50%,
+          var(--rune) 88%,
+          transparent
+        );
+      }
+      #oracle .cloth {
+        position: relative;
+        padding: 16px 26px 30px;
+        background: linear-gradient(
+          180deg,
+          rgba(61, 15, 138, 0.94),
+          rgba(20, 6, 48, 0.9)
+        );
+        clip-path: polygon(
+          0 0,
+          100% 0,
+          100% calc(100% - 16px),
+          50% 100%,
+          0 calc(100% - 16px)
+        );
+        border-left: 1px solid rgba(169, 123, 255, 0.35);
+        border-right: 1px solid rgba(169, 123, 255, 0.35);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.75);
+      }
+      #oWho {
+        font-size: 11px;
+        letter-spacing: 0.34em;
+        text-transform: uppercase;
+        color: var(--rune);
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      #oLine {
+        font-size: 23px;
+        color: var(--cream);
+        line-height: 1.34;
+        font-weight: 500;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+      }
+
+      /* ───────────────────────── POLL ───────────────────────── */
+      #poll {
+        position: absolute;
+        left: 470px;
+        top: 620px;
+        width: 560px;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      #poll.on {
+        opacity: 1;
+        transform: none;
+      }
+      #pq {
+        font-size: 15px;
+        color: var(--cream);
+        letter-spacing: 0.06em;
+        font-weight: 600;
+        margin-bottom: 9px;
+        text-shadow: 0 2px 8px #000;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+      }
+      #pTime {
+        font-size: 17px;
+        color: var(--rune);
+      }
+      #pBar {
+        height: 26px;
+        display: flex;
+        overflow: hidden;
+        border: 1px solid rgba(169, 123, 255, 0.3);
+        background: rgba(10, 6, 18, 0.72);
+      }
+      #pBar > div {
+        display: flex;
+        align-items: center;
+        padding: 0 11px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        overflow: hidden;
+      }
+      #pA {
+        background: linear-gradient(90deg, var(--deep), var(--violet));
+        color: var(--cream);
+      }
+      #pB {
+        background: rgba(243, 238, 228, 0.9);
+        color: var(--ink);
+        justify-content: flex-end;
+      }
+
+      /* ─────────────────── SAFE-ZONE GUIDE (?guide=1) ─────────────────── */
+      .zone {
+        position: absolute;
+        border: 1px dashed rgba(255, 80, 80, 0.8);
+        background: rgba(255, 0, 0, 0.08);
+        font-size: 12px;
+        color: #fff;
+        padding: 3px 6px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        display: none;
+      }
+      body.guide .zone {
+        display: block;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <!-- keep-out zones for alignment, toggle with ?guide=1 -->
+      <div class="zone" style="left: 0; top: 0; width: 502px; height: 70px">
+        buffs
+      </div>
+      <div
+        class="zone"
+        style="left: 1050px; top: 24px; width: 200px; height: 170px"
+      >
+        map info
+      </div>
+      <div
+        class="zone"
+        style="left: 1255px; top: 0; width: 665px; height: 1080px"
+      >
+        inventory / minimap
+      </div>
+      <div
+        class="zone"
+        style="left: 0; top: 760px; width: 210px; height: 110px"
+      >
+        life · shield · ward
+      </div>
+      <div
+        class="zone"
+        style="left: 0; top: 880px; width: 1920px; height: 200px"
+      >
+        flasks · skills · orbs
+      </div>
+
+      <!-- ══ LEFT RAIL ══ -->
+      <div id="rail">
+        <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M4 2 2 6v14h5v3h3l3-3h4l5-5V2H4zm16 12-3 3h-4l-3 3v-3H7V4h13v10zM11 7h2v6h-2V7zm5 0h2v6h-2V7z"
+          />
+        </svg>
+        <div id="railName">Rawad</div>
+        <div class="hair"><div class="ticks" id="ticks"></div></div>
+        <svg id="crosshair" viewBox="0 0 34 34" aria-hidden="true">
+          <circle cx="17" cy="17" r="9" />
+          <circle class="core" cx="17" cy="17" r="2.4" />
+          <line x1="17" y1="0" x2="17" y2="5" />
+          <line x1="17" y1="29" x2="17" y2="34" />
+          <line x1="0" y1="17" x2="5" y2="17" />
+          <line x1="29" y1="17" x2="34" y2="17" />
+        </svg>
+        <div class="hair"></div>
+        <div id="clock" class="num">00:00:00</div>
+      </div>
+
+      <!-- ══ TOP STRIP ══ -->
+      <div id="strip">
+        <div id="moonWrap">
+          <svg id="moonSvg" viewBox="0 0 52 52" width="52" height="52">
+            <defs>
+              <radialGradient id="lit" cx="38%" cy="34%">
+                <stop offset="0%" stop-color="#FFFBF2" />
+                <stop offset="100%" stop-color="#CDBBEB" />
+              </radialGradient>
+              <mask id="phase">
+                <circle cx="26" cy="26" r="19" fill="#fff" />
+                <circle id="shadow" cx="26" cy="26" r="19" fill="#000" />
+              </mask>
+            </defs>
+            <circle
+              cx="26"
+              cy="26"
+              r="19"
+              fill="rgba(122,47,242,.13)"
+              stroke="rgba(169,123,255,.4)"
+              stroke-width="1"
+            />
+            <circle
+              cx="26"
+              cy="26"
+              r="19"
+              fill="url(#lit)"
+              mask="url(#phase)"
+            />
+          </svg>
+          <!-- brush-stroke ring, echoes the swoosh under the wordmark -->
+          <svg id="moonRing" viewBox="0 0 64 64">
+            <path d="M55 20a26 26 0 1 1-19-13" stroke-dasharray="1 0" />
+          </svg>
+        </div>
+
+        <div class="meters">
+          <div id="chatLabel">Chat energy · <b id="phaseName">New moon</b></div>
+          <div id="track"><div id="fill"></div></div>
+        </div>
+
+        <div id="tally">
+          <div class="stat" id="s-maps">
+            <span class="v num">0</span><span class="k">Maps</span>
+          </div>
+          <div class="stat" id="s-deaths">
+            <span class="v num">0</span><span class="k">Deaths</span>
+          </div>
+          <div class="stat" id="s-mirrors">
+            <span class="v num">0</span><span class="k">Mirrors</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ POLL ══ -->
+      <div id="poll">
+        <div id="pq">
+          <span id="pText">—</span><span id="pTime" class="num">60</span>
+        </div>
+        <div id="pBar">
+          <div id="pA" style="width: 50%">!1</div>
+          <div id="pB" style="width: 50%">!2</div>
+        </div>
+      </div>
+
+      <!-- ══ ORACLE BANNER ══ -->
+      <div id="oracle">
+        <div class="rod"></div>
+        <div class="cloth">
+          <div id="oWho">The moon answers —</div>
+          <div id="oLine">…</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* ═══════════════════════════════════════════════════════════════
+   CONFIG — edit this block, nothing else needs touching
+   ═══════════════════════════════════════════════════════════════ */
+      const CONFIG = {
+        channel: "rawad663", // ← your Twitch login, lowercase, no #
+        fullMoonMessages: 25, // messages in a 60s window = full moon
+        fateCooldown: 120, // seconds each viewer must wait between !fate
+        fateGlobalGap: 6, // min seconds between two oracle banners
+        pollSeconds: 60,
+      };
+
+      /* ── scale the 1920×1080 stage to whatever the source is sized at ── */
+      const stage = document.getElementById("stage");
+      function fit() {
+        const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+        stage.style.transform = `scale(${s})`;
+        stage.style.left = (innerWidth - 1920 * s) / 2 + "px";
+      }
+      addEventListener("resize", fit);
+      fit();
+
+      const qs = new URLSearchParams(location.search);
+      const inOBS = !!window.obsstudio;
+      if (qs.get("guide") === "1") document.body.classList.add("guide");
+      // Outside OBS, show a backdrop and fake traffic so you can preview it in a browser.
+      const DEMO = qs.get("demo") === "1" || (!inOBS && qs.get("live") !== "1");
+      if (DEMO) document.body.classList.add("bg");
+
+      /* ── rail tick marks ── */
+      {
+        const t = document.getElementById("ticks");
+        for (let i = 0; i < 26; i++) {
+          const el = document.createElement("i");
+          el.style.top = i * 3.85 + "%";
+          el.style.width = (i % 5 === 0 ? 13 : 6) + "px";
+          el.style.opacity = i % 5 === 0 ? 0.8 : 0.32;
+          t.appendChild(el);
+        }
+      }
+
+      /* ── session clock ── */
+      const t0 = Date.now(),
+        clock = document.getElementById("clock");
+      setInterval(() => {
+        const s = Math.floor((Date.now() - t0) / 1000);
+        clock.textContent = [s / 3600, (s / 60) % 60, s % 60]
+          .map((n) => String(Math.floor(n)).padStart(2, "0"))
+          .join(":");
+      }, 1000);
+
+      /* ═══════════════════ THE MOON (chat energy meter) ═══════════════════ */
+      const PHASES = [
+        "New moon",
+        "Waxing crescent",
+        "First quarter",
+        "Waxing gibbous",
+        "Full moon",
+      ];
+      const shadow = document.getElementById("shadow");
+      const fill = document.getElementById("fill");
+      const phaseName = document.getElementById("phaseName");
+      const moonWrap = document.getElementById("moonWrap");
+      let beats = [],
+        fullUntil = 0;
+
+      function ping() {
+        beats.push(Date.now());
+      }
+
+      function drawMoon() {
+        const now = Date.now();
+        beats = beats.filter((t) => now - t < 60000);
+        const p = Math.min(1, beats.length / CONFIG.fullMoonMessages);
+
+        shadow.setAttribute("cx", 26 + p * 40); // slide the shadow off → waxing
+        fill.style.width = p * 100 + "%";
+        phaseName.textContent = PHASES[Math.min(4, Math.floor(p * 4.999))];
+
+        if (p >= 1 && now > fullUntil) {
+          fullUntil = now + 20000;
+          moonWrap.classList.add("full");
+          setTimeout(() => moonWrap.classList.remove("full"), 1700);
+          say(
+            "The moon is full.",
+            "Chat lit it up — " + beats.length + " messages this minute."
+          );
+        }
+      }
+      setInterval(drawMoon, 900);
+
+      /* ═══════════════════ ORACLE (!fate) ═══════════════════ */
+      const FATES = [
+        "The next rare you touch is worth more than you think. Sell it.",
+        "Something in your stash has been waiting three leagues to be useful.",
+        "You will die to a mechanic you have explained to chat before.",
+        "Turn around. You walked past it.",
+        "Your next six maps are quiet. The seventh is not.",
+        "The build works. The pilot is the variable.",
+        "Greed costs one portal tonight. Spend it early.",
+        "A currency drop lands while you are reading this.",
+        "You have enough regrets. Craft the item.",
+        "The map you keep skipping holds the good one.",
+        "Someone in chat is about to say the thing you needed to hear.",
+        "Your gear is fine. Your resistances are not.",
+        "Trade offer incoming. Take it.",
+        "The boss dies this attempt if you stop dodging backwards.",
+        "You are two levels from the passive that fixes everything.",
+        "Log off one map later than you planned. Just one.",
+        "A stranger will vouch for you tonight.",
+        "That vendor recipe you forgot is worth doing.",
+        "Nothing rare drops for an hour. Then everything does.",
+        "The loot filter is hiding it from you on purpose.",
+        "Your hideout is fine. Nobody is judging it. Some are.",
+        "Patience, then violence. In that order.",
+        "You will misclick something expensive. Breathe first.",
+        "The moon says: hydrate, then run one more.",
+      ];
+      const oracle = document.getElementById("oracle");
+      const oWho = document.getElementById("oWho");
+      const oLine = document.getElementById("oLine");
+      let lastFate = 0,
+        fateLog = new Map();
+
+      function say(who, line) {
+        const now = Date.now();
+        if (now - lastFate < CONFIG.fateGlobalGap * 1000) return false;
+        lastFate = now;
+        oWho.textContent = who;
+        oLine.textContent = line;
+        oracle.classList.remove("on");
+        void oracle.offsetWidth;
+        oracle.classList.add("on");
+        return true;
+      }
+
+      function fate(user) {
+        const now = Date.now();
+        if (now - (fateLog.get(user) || 0) < CONFIG.fateCooldown * 1000) return;
+        const ok = say(
+          user + " asked the moon —",
+          FATES[(Math.random() * FATES.length) | 0]
+        );
+        if (ok) fateLog.set(user, now);
+      }
+
+      /* ═══════════════════ TALLIES ═══════════════════ */
+      const KEYS = {
+        map: "maps",
+        maps: "maps",
+        death: "deaths",
+        deaths: "deaths",
+        mirror: "mirrors",
+        mirrors: "mirrors",
+      };
+      let tally = { maps: 0, deaths: 0, mirrors: 0 };
+      try {
+        Object.assign(
+          tally,
+          JSON.parse(localStorage.getItem("rawad-tally") || "{}")
+        );
+      } catch (e) {}
+
+      function paint(key, bump) {
+        const box = document.getElementById("s-" + key);
+        box.querySelector(".v").textContent = tally[key];
+        if (bump) {
+          box.classList.remove("hit");
+          void box.offsetWidth;
+          box.classList.add("hit");
+        }
+        try {
+          localStorage.setItem("rawad-tally", JSON.stringify(tally));
+        } catch (e) {}
+      }
+      Object.keys(tally).forEach((k) => paint(k, false));
+
+      /* ═══════════════════ POLL ═══════════════════ */
+      const pollEl = document.getElementById("poll");
+      let poll = null,
+        pollTimer = null;
+
+      function openPoll(text, a, b) {
+        poll = {
+          a: 0,
+          b: 0,
+          voters: new Set(),
+          ends: Date.now() + CONFIG.pollSeconds * 1000,
+        };
+        document.getElementById("pText").textContent = text;
+        document.getElementById("pA").textContent = "!1 " + a;
+        document.getElementById("pB").textContent = b + " !2";
+        pollEl.classList.add("on");
+        clearInterval(pollTimer);
+        pollTimer = setInterval(tickPoll, 250);
+        tickPoll();
+      }
+      function tickPoll() {
+        if (!poll) return;
+        const left = Math.max(0, Math.ceil((poll.ends - Date.now()) / 1000));
+        document.getElementById("pTime").textContent = left;
+        const tot = poll.a + poll.b;
+        const pa = tot ? (poll.a / tot) * 100 : 50;
+        document.getElementById("pA").style.width = pa + "%";
+        document.getElementById("pB").style.width = 100 - pa + "%";
+        if (left === 0) closePoll();
+      }
+      function closePoll() {
+        clearInterval(pollTimer);
+        const tot = poll ? poll.a + poll.b : 0;
+        const pa = tot ? Math.round((poll.a / tot) * 100) : 0;
+        setTimeout(() => pollEl.classList.remove("on"), 4000);
+        if (tot)
+          say(
+            "Chat has decided —",
+            pa + "% to " + (pa >= 50 ? "option one" : "option two") + "."
+          );
+        poll = null;
+      }
+
+      /* ═══════════════════ CHAT ═══════════════════ */
+      function handle(m) {
+        ping();
+        const msg = m.msg;
+        if (!msg.startsWith("!")) return;
+        const [cmd, ...rest] = msg.slice(1).split(/\s+/);
+        const arg = rest.join(" ");
+        const c = cmd.toLowerCase();
+
+        if (c === "fate") return fate(m.user);
+
+        if (poll && (c === "1" || c === "2") && !poll.voters.has(m.login)) {
+          poll.voters.add(m.login);
+          poll[c === "1" ? "a" : "b"]++;
+          return tickPoll();
+        }
+
+        if (!m.mod) return; // ── mod / broadcaster only ──
+        if (KEYS[c]) {
+          const k = KEYS[c];
+          tally[k]++;
+          return paint(k, true);
+        }
+        if (c === "undo" && KEYS[rest[0]]) {
+          const k = KEYS[rest[0]];
+          tally[k] = Math.max(0, tally[k] - 1);
+          return paint(k, true);
+        }
+        if (c === "set" && KEYS[rest[0]]) {
+          const k = KEYS[rest[0]];
+          tally[k] = Math.max(0, parseInt(rest[1]) || 0);
+          return paint(k, true);
+        }
+        if (c === "poll") {
+          const parts = arg.split("|").map((s) => s.trim());
+          return openPoll(
+            parts[0] || "Yes or no?",
+            parts[1] || "Yes",
+            parts[2] || "No"
+          );
+        }
+        if (c === "endpoll" && poll) return closePoll();
+        if (c === "say" && arg) return say("Rawad says —", arg);
+      }
+
+      function connect() {
+        const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+        ws.onopen = () => {
+          ws.send("CAP REQ :twitch.tv/tags");
+          ws.send("NICK justinfan" + ((Math.random() * 90000) | (0 + 10000)));
+          ws.send("JOIN #" + CONFIG.channel.toLowerCase());
+        };
+        ws.onmessage = (e) => {
+          for (const line of e.data.split("\r\n")) {
+            if (!line) continue;
+            if (line.startsWith("PING")) {
+              ws.send("PONG :tmi.twitch.tv");
+              continue;
+            }
+            const m = parse(line);
+            if (m) handle(m);
+          }
+        };
+        ws.onclose = () => setTimeout(connect, 4000);
+        ws.onerror = () => ws.close();
+      }
+
+      function parse(line) {
+        let tags = {},
+          rest = line;
+        if (rest[0] === "@") {
+          const sp = rest.indexOf(" ");
+          rest
+            .slice(1, sp)
+            .split(";")
+            .forEach((kv) => {
+              const i = kv.indexOf("=");
+              tags[kv.slice(0, i)] = kv.slice(i + 1);
+            });
+          rest = rest.slice(sp + 1);
+        }
+        const m = rest.match(/^:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :([\s\S]*)$/);
+        if (!m) return null;
+        const badges = tags.badges || "";
+        return {
+          login: m[1],
+          user: tags["display-name"] || m[1],
+          msg: m[2].replace(/[\u0001\r\n]/g, "").trim(),
+          mod: tags.mod === "1" || /broadcaster|moderator/.test(badges),
+        };
+      }
+
+      /* ═══════════════════ DEMO ═══════════════════ */
+      if (DEMO) {
+        const names = [
+          "exilewick",
+          "moonlitgg",
+          "vaal_andy",
+          "chris_wilson_fan",
+          "kalandra",
+          "zdps_enjoyer",
+        ];
+        const pick = (a) => a[(Math.random() * a.length) | 0];
+        setInterval(() => {
+          if (Math.random() < 0.7) ping();
+        }, 900);
+        setTimeout(() => fate(pick(names)), 2500);
+        setInterval(() => fate(pick(names)), 16000);
+        setTimeout(() => {
+          openPoll("Does he clear this without dying?", "Clean", "Portal gone");
+          const v = setInterval(() => {
+            if (!poll) return clearInterval(v);
+            poll[Math.random() < 0.62 ? "a" : "b"]++;
+            tickPoll();
+          }, 600);
+        }, 8000);
+        setTimeout(() => {
+          tally.maps = 14;
+          tally.deaths = 3;
+          tally.mirrors = 1;
+          Object.keys(tally).forEach((k) => paint(k, true));
+        }, 1400);
+      } else {
+        connect();
+      }
+    </script>
+  </body>
+</html>
