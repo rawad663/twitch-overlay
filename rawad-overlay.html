@@ -575,6 +575,178 @@
       body.guide .zone {
         display: block;
       }
+      /* ═══════════════════ AFK / BRB SCENE ═══════════════════
+         A second OBS source loads this same file with ?mode=. The HUD source
+         stays layered on top, so everything here keeps clear of its lanes:
+           strip  x520–1040 y16–92     rail   x26–82  y132–812
+           notice x26–200   y96–112    banner x470–1030 y620–822          */
+      body.scene {
+        background: #06040d;
+      }
+      /* the HUD belongs to the other source — this one draws only the scene */
+      body.scene #rail,
+      body.scene #strip,
+      body.scene #poll,
+      body.scene #oracle,
+      body.scene #notice,
+      body.scene .zone {
+        display: none !important;
+      }
+      #scene {
+        position: absolute;
+        inset: 0;
+        display: none;
+      }
+      body.scene #scene {
+        display: block;
+      }
+      #sky {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+      }
+      #scene .layer {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* ── status block (x150–1000, y240–540) ── */
+      #scStatus {
+        position: absolute;
+        left: 150px;
+        top: 250px;
+        width: 850px;
+      }
+      #scKicker {
+        font-size: 15px;
+        letter-spacing: 0.42em;
+        text-transform: uppercase;
+        color: var(--rune);
+        font-weight: 600;
+        margin-bottom: 14px;
+        opacity: 0.9;
+      }
+      #scTitle {
+        font-size: 92px;
+        line-height: 0.94;
+        font-weight: 700;
+        color: var(--cream);
+        letter-spacing: 0.01em;
+        text-shadow: 0 6px 40px rgba(0, 0, 0, 0.8);
+      }
+      #scTimer {
+        font-size: 128px;
+        line-height: 1;
+        font-weight: 700;
+        color: var(--cream);
+        margin-top: 18px;
+        text-shadow: 0 0 50px rgba(122, 47, 242, 0.55);
+      }
+      #scTimer.over {
+        font-size: 52px;
+        color: var(--ember);
+        animation: overPulse 2.6s ease-in-out infinite;
+      }
+      @keyframes overPulse {
+        0%,
+        100% {
+          opacity: 0.72;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      #scSub {
+        margin-top: 20px;
+        font-size: 19px;
+        color: rgba(243, 238, 228, 0.55);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      /* ── goal bars (x150–640, y870–1020) ── */
+      #scGoals {
+        position: absolute;
+        left: 150px;
+        top: 872px;
+        width: 490px;
+      }
+      #scGoals .goal {
+        margin-bottom: 17px;
+      }
+      #scGoals .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 12px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        font-weight: 600;
+        color: rgba(243, 238, 228, 0.5);
+        margin-bottom: 7px;
+      }
+      #scGoals .row b {
+        color: var(--cream);
+        font-size: 17px;
+        font-weight: 700;
+      }
+      #scGoals .bar {
+        height: 4px;
+        background: rgba(243, 238, 228, 0.12);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      #scGoals .bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: 2px;
+        background: linear-gradient(90deg, var(--deep), var(--violet), var(--rune));
+        box-shadow: 0 0 12px rgba(122, 47, 242, 0.75);
+        transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      #scGoals .goal.done .bar i {
+        background: linear-gradient(90deg, var(--violet), var(--ember));
+        box-shadow: 0 0 16px rgba(232, 163, 61, 0.8);
+      }
+      #scGoals .goal.done .row b {
+        color: var(--ember);
+      }
+
+      /* ── rotating prompt (x1150–1800, y880–1000) ── */
+      #scPrompt {
+        position: absolute;
+        left: 1150px;
+        top: 892px;
+        width: 650px;
+        text-align: right;
+      }
+      #scPromptLabel {
+        font-size: 11px;
+        letter-spacing: 0.36em;
+        text-transform: uppercase;
+        color: rgba(243, 238, 228, 0.38);
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+      #scPromptText {
+        font-size: 30px;
+        color: var(--cream);
+        font-weight: 500;
+        line-height: 1.28;
+        transition: opacity 0.5s, transform 0.5s;
+      }
+      #scPromptText b {
+        color: var(--rune);
+        font-weight: 700;
+      }
+      #scPromptText.out {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+
       /* ─────────────────── OAUTH HELPER (one-off, not part of the stream) ─────────────────── */
       #oauthHelper {
         position: fixed;
@@ -779,6 +951,26 @@
         </div>
       </div>
 
+      <!-- ══ AFK / BRB SCENE (only rendered with ?mode=) ══ -->
+      <div id="scene">
+        <canvas id="sky" width="1920" height="1080"></canvas>
+        <div class="layer">
+          <div id="scStatus">
+            <div id="scKicker">The moon keeps watch</div>
+            <div id="scTitle">Be right back</div>
+            <div id="scTimer" class="num">15:00</div>
+            <div id="scSub">Chat raises the moon while I'm gone</div>
+          </div>
+
+          <div id="scGoals"></div>
+
+          <div id="scPrompt">
+            <div id="scPromptLabel">While you wait</div>
+            <div id="scPromptText">—</div>
+          </div>
+        </div>
+      </div>
+
       <!-- ══ TOKEN / CONNECTION NOTICE ══ -->
       <div id="notice"></div>
 
@@ -809,6 +1001,15 @@
         alertGap: 650, // ms of breathing room between two banners
         queueCap: 10, // above this, the least important alerts get dropped
         volume: 0.5, // 0–1, override per-source with ?volume=
+
+        // ── AFK / BRB scene ──
+        brbMinutes: 15, // default countdown when none is given
+        maxStars: 120, // chatter stars kept on screen before evicting
+        starLabels: 8, // how many carry a visible name
+        constellation: 6, // most-recent chatters linked by lines
+        goalFollows: 10, // away-session targets
+        goalSubs: 3,
+        goalMessages: 100,
       };
 
       /* ── scale the 1920×1080 stage to whatever the source is sized at ── */
@@ -827,6 +1028,12 @@
       // Outside OBS, show a backdrop and fake traffic so you can preview it in a browser.
       const DEMO = qs.get("demo") === "1" || (!inOBS && qs.get("live") !== "1");
       if (DEMO) document.body.classList.add("bg");
+
+      /* Scene mode turns this same file into the full-screen AFK/BRB view for a
+         second OBS source. No ?mode= at all leaves the HUD exactly as it was. */
+      const MODE = (qs.get("mode") || "").toLowerCase();
+      const SCENE = MODE === "afk" || MODE === "brb" || MODE === "scene";
+      if (SCENE) document.body.classList.add("scene");
 
       /* Secrets never live in this file — the repo is public. The token is
          passed in the OBS browser-source URL, which stays on your machine. */
@@ -1358,6 +1565,7 @@
       /* ── follows: merge any that are still waiting, so a raid-flood
             becomes one banner instead of twenty ── */
       function alertFollow(user) {
+        Scene.note("follow", user);
         const waiting = Director.q.find((e) => e.type === "follow");
         if (waiting) {
           waiting.names.push(user);
@@ -1371,6 +1579,7 @@
       }
 
       function alertSub(user, months) {
+        Scene.note("sub", user);
         const m = parseInt(months) || 0;
         if (m > 1)
           Director.push("sub", WHO.resub, phrase("resub", { u: user, n: m }));
@@ -1382,6 +1591,7 @@
       const giftBomb = new Map();
 
       function alertMassGift(user, count) {
+        Scene.note("massgift", user);
         const n = parseInt(count) || 1;
         giftBomb.set(user, { left: n, until: Date.now() + 15000 });
         Director.push("massgift", WHO.massgift, phrase("massgift", { u: user, n }));
@@ -1393,6 +1603,7 @@
           bomb.left--; // part of a bomb we already announced
           return;
         }
+        Scene.note("gift", user); // only the gifts that actually announce
         Director.push(
           "gift",
           WHO.gift,
@@ -1401,6 +1612,7 @@
       }
 
       function alertRaid(user, viewers) {
+        Scene.note("raid", user);
         const n = parseInt(viewers) || 0;
         Director.push("raid", WHO.raid, phrase("raid", { u: user, n }));
       }
@@ -1542,6 +1754,7 @@
       function handle(m) {
         if (m.kind === "notice") return notice(m);
         ping();
+        Scene.chat(m.login, m.user); // names only — never the message text
         if (m.bits) alertCheer(m.user, m.bits);
         const msg = m.msg;
         if (!msg.startsWith("!")) return;
@@ -1584,6 +1797,10 @@
         if (c === "endpoll" && poll) return closePoll();
         if (c === "say" && arg) return say("Rawad says —", arg);
         if (c === "testalert") return testAlert(rest[0] || "sub", m.user);
+        // away controls — the OBS toggle shows the scene, these set what it says
+        if (c === "brb") return Scene.brb(rest[0]);
+        if (c === "afk") return Scene.afk();
+        if (c === "back") return Scene.back();
       }
 
       /* fire a fake alert without waiting on a real one — !testalert raid, etc.
@@ -1803,6 +2020,534 @@
         }
       }
 
+      /* ═══════════════════ AFK / BRB SCENE ═══════════════════
+         Runs in a second OBS browser source (?mode=afk / ?mode=brb) layered
+         under the HUD. Everything is drawn on one canvas; the loop pauses when
+         OBS reports the source hidden, because hidden sources keep running. */
+      const AWAY_PROMPTS = [
+        "Type <b>!fate</b> — the moon still answers",
+        "Every chatter becomes a <b>star</b> up there",
+        "Keep talking and the <b>moon rises</b>",
+        "Follow to put your name in the <b>sky</b>",
+        "<b>!fate</b> works even while I'm gone",
+        "The constellation is built from <b>whoever's talking</b>",
+      ];
+
+      const Scene = {
+        on: SCENE,
+        state: MODE === "afk" ? "afk" : MODE === "brb" ? "brb" : "idle",
+        until: 0,
+        since: Date.now(),
+        follows: 0,
+        subs: 0,
+        messages: 0,
+        stars: new Map(),
+        recent: [],
+        shots: [],
+        dust: [],
+        raf: null,
+        paused: false,
+        moonFull: false,
+
+        /* ── geometry: the HUD owns these, so nothing of ours may land in them ── */
+        blocked: [
+          [520, 16, 1040, 92], // top strip + quiet hint
+          [26, 132, 82, 812], // left rail
+          [26, 96, 200, 112], // token notice
+          [470, 620, 1030, 822], // poll + alert banner
+          [150, 240, 1010, 560], // our own status block
+          [150, 860, 650, 1030], // our own goal bars
+          [1140, 880, 1810, 1010], // our own prompt
+        ],
+        moonX: 1360,
+        moonY: 400,
+        moonR: 200,
+
+        free(x, y) {
+          // keep clear of the moon (and its glow) as well as every text block
+          const dx = x - this.moonX,
+            dy = y - this.moonY;
+          if (dx * dx + dy * dy < 250 * 250) return false;
+          if (x < 60 || x > 1880 || y < 50 || y > 1040) return false;
+          return !this.blocked.some(
+            (r) => x > r[0] - 40 && x < r[2] + 40 && y > r[1] - 30 && y < r[3] + 30
+          );
+        },
+
+        // stable per-name placement, so someone's star is always in the same spot
+        place(login) {
+          let h = 2166136261;
+          for (let i = 0; i < login.length; i++) {
+            h ^= login.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+          }
+          for (let a = 0; a < 40; a++) {
+            const s1 = Math.imul(h ^ (a * 0x9e3779b9), 2654435761) >>> 0;
+            const s2 = Math.imul(s1 ^ 0x85ebca6b, 2246822519) >>> 0;
+            const x = 60 + (s1 % 1820);
+            const y = 50 + (s2 % 990);
+            if (this.free(x, y)) return { x, y };
+          }
+          return null; // sky's full in the usable region — skip this one
+        },
+
+        chat(login, name) {
+          if (!this.on) return;
+          this.messages++;
+          const now = Date.now();
+          let st = this.stars.get(login);
+          if (!st) {
+            const pos = this.place(login);
+            if (!pos) return;
+            st = { x: pos.x, y: pos.y, name, born: now, bright: 0 };
+            this.stars.set(login, st);
+            if (this.stars.size > CONFIG.maxStars) {
+              // evict whoever has been quiet longest
+              let oldest = null,
+                oldestAt = Infinity;
+              this.stars.forEach((v, k) => {
+                if (v.last < oldestAt) {
+                  oldestAt = v.last;
+                  oldest = k;
+                }
+              });
+              if (oldest) this.stars.delete(oldest);
+            }
+          }
+          st.name = name;
+          st.last = now;
+          st.bright = 1;
+          this.recent = [login, ...this.recent.filter((l) => l !== login)].slice(
+            0,
+            CONFIG.constellation
+          );
+        },
+
+        /* called from the alert functions so a real follow/sub crosses the sky */
+        note(type, name) {
+          if (!this.on) return;
+          if (type === "follow") this.follows++;
+          else if (type === "sub" || type === "gift") this.subs++;
+          else if (type === "massgift") this.subs += 5;
+          const ember = type !== "follow";
+          this.shots.push({
+            x: -160,
+            y: 120 + Math.random() * 520,
+            vx: 5.4 + Math.random() * 1.6,
+            vy: 0.9 + Math.random() * 0.7,
+            life: 0,
+            max: 460,
+            name: String(name || "someone"),
+            ember,
+          });
+          if (this.shots.length > 6) this.shots.shift();
+          this.paintGoals();
+        },
+
+        /* ── state ── */
+        brb(minutes) {
+          const m = Math.max(1, Math.min(180, parseInt(minutes) || CONFIG.brbMinutes));
+          this.state = "brb";
+          this.since = Date.now();
+          this.until = Date.now() + m * 60000;
+          this.reset();
+          this.share();
+        },
+        afk() {
+          this.state = "afk";
+          this.since = Date.now();
+          this.until = 0;
+          this.reset();
+          this.share();
+        },
+        back() {
+          this.state = "back";
+          this.until = 0;
+          this.share();
+        },
+        reset() {
+          this.follows = this.subs = this.messages = 0;
+          this.moonFull = false;
+          this.paintGoals();
+        },
+        share() {
+          try {
+            if (this.bc)
+              this.bc.postMessage({
+                state: this.state,
+                until: this.until,
+                since: this.since,
+              });
+          } catch (e) {}
+        },
+
+        /* ── goals ── */
+        goalDefs() {
+          return [
+            ["New souls", this.follows, CONFIG.goalFollows],
+            ["Oaths sworn", this.subs, CONFIG.goalSubs],
+            ["Messages", this.messages, CONFIG.goalMessages],
+          ];
+        },
+        paintGoals() {
+          if (!this.on || !this.goalsEl) return;
+          this.goalDefs().forEach(([label, val, target], i) => {
+            const row = this.goalsEl.children[i];
+            if (!row) return;
+            const pct = Math.min(100, (val / target) * 100);
+            row.querySelector("b").textContent = val + " / " + target;
+            row.querySelector("i").style.width = pct + "%";
+            row.classList.toggle("done", val >= target);
+          });
+        },
+
+        /* ── the loop ── */
+        setVisible(v) {
+          if (!this.on) return;
+          if (v) {
+            // toggled on with a stale or finished countdown → start a fresh one
+            if (MODE === "brb" && (!this.until || Date.now() > this.until))
+              this.brb(qs.get("min"));
+            this.paused = false;
+            this.start();
+          } else {
+            this.paused = true; // hidden OBS sources keep running otherwise
+          }
+        },
+        start() {
+          if (!this.raf) this.raf = requestAnimationFrame(() => this.frame());
+        },
+        frame() {
+          this.raf = null;
+          if (this.paused) return;
+          this.draw();
+          this.raf = requestAnimationFrame(() => this.frame());
+        },
+
+        init() {
+          if (!this.on) return;
+          this.cv = document.getElementById("sky");
+          this.ctx = this.cv.getContext("2d");
+          this.goalsEl = document.getElementById("scGoals");
+          this.titleEl = document.getElementById("scTitle");
+          this.timerEl = document.getElementById("scTimer");
+          this.kickerEl = document.getElementById("scKicker");
+          this.subEl = document.getElementById("scSub");
+          this.promptEl = document.getElementById("scPromptText");
+
+          this.goalsEl.innerHTML = this.goalDefs()
+            .map(
+              ([label]) =>
+                '<div class="goal"><div class="row"><span>' +
+                esc(label) +
+                "</span><b>0 / 0</b></div><div class=\"bar\"><i></i></div></div>"
+            )
+            .join("");
+          this.paintGoals();
+
+          // ambient drifting dust, separate from the named chatter stars
+          for (let i = 0; i < 130; i++)
+            this.dust.push({
+              x: Math.random() * 1920,
+              y: Math.random() * 1080,
+              r: Math.random() * 1.5 + 0.35,
+              a: Math.random() * 0.5 + 0.12,
+              tw: Math.random() * 6.28,
+              sp: Math.random() * 0.02 + 0.004,
+            });
+
+          if (MODE === "brb") this.brb(qs.get("min"));
+          else if (MODE === "afk") this.afk();
+
+          let pi = 0;
+          this.promptEl.innerHTML = AWAY_PROMPTS[0];
+          setInterval(() => {
+            this.promptEl.classList.add("out");
+            setTimeout(() => {
+              pi = (pi + 1) % AWAY_PROMPTS.length;
+              this.promptEl.innerHTML = AWAY_PROMPTS[pi];
+              this.promptEl.classList.remove("out");
+            }, 500);
+          }, 9000);
+
+          try {
+            this.bc = new BroadcastChannel("rawad-away");
+            this.bc.onmessage = (e) => {
+              const d = e.data || {};
+              if (!d.state || d.since <= this.since) return;
+              this.state = d.state;
+              this.until = d.until;
+              this.since = d.since;
+              this.reset();
+            };
+          } catch (e) {}
+
+          // OBS visibility — detail shape isn't documented, so read it defensively
+          addEventListener("obsSourceVisibleChanged", (e) => {
+            const v = e && e.detail ? e.detail.visible !== false : true;
+            this.setVisible(v);
+          });
+          if (window.obsstudio)
+            window.obsstudio.onVisibilityChange = (v) => this.setVisible(!!v);
+
+          this.tick(Date.now()); // correct headline before the first frame lands
+          this.start();
+        },
+      };
+
+      /* ── drawing ── */
+      Scene.draw = function () {
+        const g = this.ctx,
+          now = Date.now(),
+          t = now / 1000;
+        g.clearRect(0, 0, 1920, 1080);
+
+        // backdrop
+        const bg = g.createRadialGradient(1360, 360, 80, 960, 540, 1400);
+        bg.addColorStop(0, "#1a1030");
+        bg.addColorStop(0.55, "#0b0718");
+        bg.addColorStop(1, "#06040d");
+        g.fillStyle = bg;
+        g.fillRect(0, 0, 1920, 1080);
+
+        // ambient dust
+        this.dust.forEach((d) => {
+          d.tw += d.sp;
+          const a = d.a * (0.55 + 0.45 * Math.sin(d.tw));
+          g.globalAlpha = a;
+          g.fillStyle = "#cdbbeb";
+          g.beginPath();
+          g.arc(d.x, d.y, d.r, 0, 6.283);
+          g.fill();
+        });
+        g.globalAlpha = 1;
+
+        // lines first so the moon occludes them — otherwise the constellation
+        // draws straight across the moon's face and looks like scratches
+        this.drawLines(g);
+        this.drawMoonBig(g, now, t);
+        this.drawStars(g, now, t);
+        this.drawShots(g);
+        this.tick(now);
+      };
+
+      Scene.drawMoonBig = function (g, now, t) {
+        const cx = this.moonX,
+          cy = this.moonY,
+          r = this.moonR;
+        const live = beats.filter((b) => now - b < 60000).length;
+        const p = Math.min(1, live / CONFIG.fullMoonMessages);
+
+        if (p >= 1 && !this.moonFull) this.moonFull = true;
+
+        // glow
+        const glow = g.createRadialGradient(cx, cy, r * 0.7, cx, cy, r * 2.05);
+        glow.addColorStop(0, this.moonFull ? "rgba(232,163,61,.34)" : "rgba(122,47,242,.30)");
+        glow.addColorStop(1, "rgba(122,47,242,0)");
+        g.fillStyle = glow;
+        g.beginPath();
+        g.arc(cx, cy, r * 2.05, 0, 6.283);
+        g.fill();
+
+        // disc, then the shadow slid off to the right as energy rises
+        g.save();
+        g.beginPath();
+        g.arc(cx, cy, r, 0, 6.283);
+        g.clip();
+        const lit = g.createRadialGradient(
+          cx - r * 0.2,
+          cy - r * 0.28,
+          r * 0.1,
+          cx,
+          cy,
+          r * 1.1
+        );
+        lit.addColorStop(0, "#FFFBF2");
+        lit.addColorStop(1, this.moonFull ? "#F0D8A8" : "#CDBBEB");
+        g.fillStyle = lit;
+        g.fillRect(cx - r, cy - r, r * 2, r * 2);
+        // shadow tinted to the sky behind it — pure black reads as an object
+        // stuck on the moon rather than the unlit side of it
+        g.fillStyle = "#150d29";
+        g.beginPath();
+        g.arc(cx + p * 2.1 * r, cy, r, 0, 6.283);
+        g.fill();
+        g.restore();
+
+        g.strokeStyle = "rgba(169,123,255,.35)";
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.arc(cx, cy, r, 0, 6.283);
+        g.stroke();
+
+        // chat-energy ring
+        this.ring(g, cx, cy, r + 30, p, this.moonFull ? "#E8A33D" : "#A97BFF", 4);
+
+        // countdown ring, brb only
+        if (this.state === "brb" && this.until) {
+          const total = this.until - this.since;
+          const left = Math.max(0, this.until - now);
+          this.ring(g, cx, cy, r + 52, total ? left / total : 0, "#E8A33D", 3);
+        }
+
+        g.font = "600 15px Rajdhani, sans-serif";
+        g.fillStyle = "rgba(243,238,228,.5)";
+        g.textAlign = "center";
+        g.fillText(
+          this.moonFull ? "THE MOON IS FULL" : "CHAT ENERGY  " + Math.round(p * 100) + "%",
+          cx,
+          cy + r + 92
+        );
+        g.textAlign = "left";
+      };
+
+      Scene.ring = function (g, cx, cy, rad, frac, color, w) {
+        g.strokeStyle = "rgba(243,238,228,.09)";
+        g.lineWidth = w;
+        g.beginPath();
+        g.arc(cx, cy, rad, 0, 6.283);
+        g.stroke();
+        if (frac <= 0) return;
+        g.strokeStyle = color;
+        g.lineWidth = w;
+        g.lineCap = "round";
+        g.beginPath();
+        g.arc(cx, cy, rad, -1.5708, -1.5708 + 6.283 * Math.min(1, frac));
+        g.stroke();
+        g.lineCap = "butt";
+      };
+
+      /* constellation lines between the most recent voices */
+      Scene.drawLines = function (g) {
+        const pts = this.recent.map((l) => this.stars.get(l)).filter(Boolean);
+        if (pts.length < 2) return;
+        g.strokeStyle = "rgba(169,123,255,.20)";
+        g.lineWidth = 1;
+        g.beginPath();
+        pts.forEach((s, i) => (i ? g.lineTo(s.x, s.y) : g.moveTo(s.x, s.y)));
+        g.stroke();
+      };
+
+      Scene.drawStars = function (g, now, t) {
+        const labelled = [...this.stars.entries()]
+          .sort((a, b) => b[1].bright - a[1].bright)
+          .slice(0, CONFIG.starLabels)
+          .map(([l]) => l);
+
+        this.stars.forEach((s, login) => {
+          const age = (now - s.last) / 1000;
+          s.bright = Math.max(0.28, 1 - age / 26);
+          const tw = 0.82 + 0.18 * Math.sin(t * 2.1 + s.x * 0.01);
+          const rad = 1.7 + s.bright * 3.1;
+
+          const halo = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, rad * 5);
+          halo.addColorStop(0, "rgba(233,224,255," + 0.5 * s.bright * tw + ")");
+          halo.addColorStop(1, "rgba(122,47,242,0)");
+          g.fillStyle = halo;
+          g.beginPath();
+          g.arc(s.x, s.y, rad * 5, 0, 6.283);
+          g.fill();
+
+          g.fillStyle = "rgba(255,251,242," + (0.55 + 0.45 * s.bright) * tw + ")";
+          g.beginPath();
+          g.arc(s.x, s.y, rad, 0, 6.283);
+          g.fill();
+
+          if (labelled.includes(login)) {
+            g.font = "600 15px Rajdhani, sans-serif";
+            g.fillStyle = "rgba(243,238,228," + (0.3 + 0.55 * s.bright) + ")";
+            g.fillText(s.name, s.x + rad + 9, s.y + 5);
+          }
+        });
+      };
+
+      Scene.drawShots = function (g) {
+        this.shots = this.shots.filter((s) => s.life < s.max);
+        this.shots.forEach((s) => {
+          s.life++;
+          s.x += s.vx * 2.4;
+          s.y += s.vy * 2.4;
+          const fade =
+            s.life < 40 ? s.life / 40 : Math.max(0, 1 - (s.life - 40) / (s.max - 40));
+          const col = s.ember ? "232,163,61" : "169,123,255";
+          const tail = g.createLinearGradient(s.x - s.vx * 46, s.y - s.vy * 46, s.x, s.y);
+          tail.addColorStop(0, "rgba(" + col + ",0)");
+          tail.addColorStop(1, "rgba(" + col + "," + 0.85 * fade + ")");
+          g.strokeStyle = tail;
+          g.lineWidth = 2.4;
+          g.lineCap = "round";
+          g.beginPath();
+          g.moveTo(s.x - s.vx * 46, s.y - s.vy * 46);
+          g.lineTo(s.x, s.y);
+          g.stroke();
+          g.lineCap = "butt";
+
+          g.fillStyle = "rgba(255,251,242," + fade + ")";
+          g.beginPath();
+          g.arc(s.x, s.y, 3.1, 0, 6.283);
+          g.fill();
+
+          g.font = "700 19px Rajdhani, sans-serif";
+          g.fillStyle = "rgba(" + col + "," + fade + ")";
+          g.fillText(s.name, s.x + 14, s.y + 6);
+        });
+      };
+
+      /* clock + headline. Runs every frame, so only touch the DOM when the text
+         actually changes — otherwise it's 240 writes a second for an hour. */
+      Scene.set = function (el, prop, val) {
+        const k = el.id + prop;
+        if (this._last[k] === val) return;
+        this._last[k] = val;
+        el[prop] = val;
+      };
+      Scene._last = {};
+
+      Scene.tick = function (now) {
+        const S = (el, v) => this.set(el, "textContent", v);
+        if (this.state === "back") {
+          S(this.kickerEl, "The vigil ends");
+          S(this.titleEl, "Back now");
+          S(this.timerEl, "");
+          this.set(this.timerEl, "className", "num");
+          S(this.subEl, "Thanks for keeping the sky lit");
+          return;
+        }
+
+        const fmt = (ms) => {
+          const s = Math.max(0, Math.floor(ms / 1000));
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          const ss = s % 60;
+          const pad = (n) => String(n).padStart(2, "0");
+          return h ? h + ":" + pad(m) + ":" + pad(ss) : pad(m) + ":" + pad(ss);
+        };
+
+        if (this.state === "brb") {
+          const left = this.until - now;
+          S(this.kickerEl, "The moon keeps watch");
+          S(this.titleEl, "Be right back");
+          if (left > 0) {
+            S(this.timerEl, fmt(left));
+            this.set(this.timerEl, "className", "num");
+            S(this.subEl, "Chat raises the moon while I'm gone");
+          } else {
+            // never sit on 00:00 — overrunning should still look deliberate
+            S(this.timerEl, "any moment now…");
+            this.set(this.timerEl, "className", "over");
+            S(this.subEl, "Keep the sky busy a little longer");
+          }
+        } else if (this.state === "afk") {
+          S(this.kickerEl, "Away — the moon keeps watch");
+          S(this.titleEl, "AFK");
+          S(this.timerEl, fmt(now - this.since));
+          this.set(this.timerEl, "className", "num");
+          S(this.subEl, "Back when the sky says so");
+        }
+      };
+
+      Scene.init();
+
       /* ═══════════════════ DEMO ═══════════════════ */
       if (DEMO) {
         const names = [
@@ -1813,8 +2558,27 @@
           "kalandra",
           "zdps_enjoyer",
         ];
+        // a wider cast so the constellation actually fills out in a preview
+        const crowd = names.concat([
+          "sirestus",
+          "hexweaver",
+          "delve_diver",
+          "poe_gremlin",
+          "tabula_rasa",
+          "lootgoblin",
+          "shaper_fan",
+          "atlas_andy",
+          "harvestenjoyer",
+          "quantumleap",
+          "nightowl",
+          "brekstone",
+        ]);
         setInterval(() => {
           if (Math.random() < 0.7) ping();
+          if (SCENE && Math.random() < 0.8) {
+            const n = pick(crowd);
+            Scene.chat(n, n);
+          }
         }, 900);
         setTimeout(() => fate(pick(names)), 2500);
         setInterval(() => fate(pick(names)), 16000);
