@@ -2205,9 +2205,10 @@
         setVisible(v) {
           if (!this.on) return;
           if (v) {
-            // toggled on with a stale or finished countdown → start a fresh one
-            if (MODE === "brb" && (!this.until || Date.now() > this.until))
-              this.brb(qs.get("min"));
+            // the OBS toggle *is* the reset — showing the source always starts
+            // a fresh timer, so hide/show is a one-click reset from OBS alone
+            if (MODE === "brb") this.brb(qs.get("min"));
+            else if (MODE === "afk") this.afk();
             this.paused = false;
             this.start();
           } else {
