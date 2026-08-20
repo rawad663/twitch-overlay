@@ -1035,11 +1035,104 @@
       const SCENE = MODE === "afk" || MODE === "brb" || MODE === "scene";
       if (SCENE) document.body.classList.add("scene");
 
+      /* ═══════════════════ CONTROL BUS ═══════════════════
+         Links this source to admin.html. Same-origin only, which in practice
+         means the panel must be an OBS *Custom Browser Dock* — a normal Chrome
+         tab is a different browser and shares nothing.
+
+         Three redundant mechanisms, deduped by id, because OBS has a history of
+         breaking one or another between docks and sources:
+           1. BroadcastChannel  2. storage events  3. polling the same key    */
+      const BUS_KEY = "rawad-control-msg";
+      const Bus = {
+        id: Math.random().toString(36).slice(2),
+        ch: null,
+        seen: [],
+        handlers: {},
+        lastId: "",
+
+        init() {
+          try {
+            this.ch = new BroadcastChannel("rawad-control");
+            this.ch.onmessage = (e) => this.deliver(e.data);
+          } catch (e) {}
+
+          addEventListener("storage", (e) => {
+            if (e.key !== BUS_KEY || !e.newValue) return;
+            try {
+              this.deliver(JSON.parse(e.newValue));
+            } catch (_) {}
+          });
+
+          // covers storage events not firing across CEF views
+          setInterval(() => {
+            let raw;
+            try {
+              raw = localStorage.getItem(BUS_KEY);
+            } catch (_) {
+              return;
+            }
+            if (!raw) return;
+            try {
+              const m = JSON.parse(raw);
+              if (m && m.id !== this.lastId) {
+                this.lastId = m.id;
+                this.deliver(m);
+              }
+            } catch (_) {}
+          }, 500);
+          return this;
+        },
+
+        send(type, payload) {
+          const msg = {
+            v: 1,
+            id: this.id + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            ts: Date.now(),
+            from: this.id,
+            type,
+            payload: payload || {},
+          };
+          try {
+            if (this.ch) this.ch.postMessage(msg);
+          } catch (e) {}
+          try {
+            localStorage.setItem(BUS_KEY, JSON.stringify(msg));
+          } catch (e) {}
+        },
+
+        on(type, fn) {
+          (this.handlers[type] = this.handlers[type] || []).push(fn);
+          return this;
+        },
+
+        deliver(msg) {
+          if (!msg || msg.v !== 1 || msg.from === this.id) return; // ignore our own
+          if (this.seen.indexOf(msg.id) !== -1) return;
+          this.seen.push(msg.id);
+          if (this.seen.length > 200) this.seen.splice(0, 100);
+          (this.handlers[msg.type] || []).forEach((fn) => {
+            try {
+              fn(msg.payload, msg);
+            } catch (e) {}
+          });
+        },
+      };
+
+      /* what the panel's status section reports on — updated in place */
+      const Status = {
+        irc: "connecting",
+        eventsub: "off",
+        token: false,
+      };
+
       /* Secrets never live in this file — the repo is public. The token is
          passed in the OBS browser-source URL, which stays on your machine. */
       const TOKEN = qs.get("token") || "";
       const CLIENT_ID = qs.get("client_id") || CONFIG.clientId;
       const MUTED = qs.get("mute") === "1";
+      Status.token = !!TOKEN;
+      Status.eventsub = TOKEN && CLIENT_ID ? "connecting" : "off";
       if (qs.has("volume")) {
         const v = parseFloat(qs.get("volume"));
         if (!isNaN(v)) CONFIG.volume = Math.max(0, Math.min(1, v));
@@ -1839,6 +1932,7 @@
       function connect() {
         const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
         ws.onopen = () => {
+          Status.irc = "live";
           // commands is what carries USERNOTICE (subs, gifts, raids)
           ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
           ws.send("NICK justinfan" + (((Math.random() * 90000) | 0) + 10000));
@@ -1855,7 +1949,10 @@
             if (m) handle(m);
           }
         };
-        ws.onclose = () => setTimeout(connect, 4000);
+        ws.onclose = () => {
+          Status.irc = "down";
+          setTimeout(connect, 4000);
+        };
         ws.onerror = () => ws.close();
       }
 
@@ -2011,11 +2108,16 @@
               transport: { method: "websocket", session_id: sessionId },
             }),
           });
-          if (r.ok) return clearNotice();
+          if (r.ok) {
+            Status.eventsub = "live";
+            return clearNotice();
+          }
+          Status.eventsub = r.status === 401 ? "expired" : "error";
           showNotice(
             r.status === 401 ? "twitch token expired" : "follow alerts unavailable"
           );
         } catch (e) {
+          Status.eventsub = "error";
           showNotice("follow alerts offline");
         }
       }
@@ -2549,6 +2651,25 @@
 
       Scene.init();
 
+      /* ═══════════════════ CONTROL BUS WIRING ═══════════════════ */
+      Bus.init();
+
+      function busHello() {
+        Bus.send("hello", {
+          role: SCENE ? "scene" : "hud",
+          mode: MODE || "hud",
+          demo: DEMO,
+          irc: Status.irc,
+          eventsub: Status.eventsub,
+          token: Status.token,
+          away: SCENE ? { state: Scene.state, until: Scene.until, since: Scene.since } : null,
+        });
+      }
+      // answer a panel that just opened, rather than making it wait for the tick
+      Bus.on("ping", busHello);
+      setInterval(busHello, 2000);
+      busHello();
+
       /* ═══════════════════ DEMO ═══════════════════ */
       if (DEMO) {
         const names = [
@@ -2604,6 +2725,7 @@
           tally.mirrors = 1;
           Object.keys(tally).forEach((k) => paint(k, true));
         }, 1400);
+        Status.irc = "demo"; // never connects in demo — don't report "connecting" forever
       } else {
         connect();
         followsInit();
