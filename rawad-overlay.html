@@ -575,6 +575,82 @@
       body.guide .zone {
         display: block;
       }
+      /* ─────────────────── OAUTH HELPER (one-off, not part of the stream) ─────────────────── */
+      #oauthHelper {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(10, 6, 18, 0.92);
+        font-family: "Rajdhani", system-ui, sans-serif;
+      }
+      #oauthHelper .card {
+        width: min(560px, 92vw);
+        padding: 30px 34px;
+        background: linear-gradient(
+          180deg,
+          rgba(61, 15, 138, 0.5),
+          rgba(20, 6, 48, 0.85)
+        );
+        border: 1px solid rgba(169, 123, 255, 0.35);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.75);
+      }
+      #oauthHelper h1 {
+        font-size: 20px;
+        color: #f3eee4;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        margin-bottom: 18px;
+      }
+      #oauthHelper label {
+        display: block;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(243, 238, 228, 0.55);
+        font-weight: 600;
+        margin-top: 16px;
+      }
+      #oauthHelper input,
+      #oauthHelper textarea {
+        display: block;
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: rgba(10, 6, 18, 0.6);
+        border: 1px solid rgba(169, 123, 255, 0.3);
+        color: #f3eee4;
+        font-family: "Barlow Condensed", sans-serif;
+        font-size: 15px;
+        border-radius: 2px;
+      }
+      #oauthHelper textarea {
+        height: 76px;
+        resize: none;
+        word-break: break-all;
+      }
+      #oauthHelper button {
+        margin-top: 18px;
+        padding: 10px 22px;
+        background: linear-gradient(90deg, #3d0f8a, #7a2ff2);
+        color: #f3eee4;
+        border: none;
+        border-radius: 2px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      #oauthHelper .hint {
+        margin-top: 14px;
+        font-size: 12px;
+        color: rgba(243, 238, 228, 0.5);
+        line-height: 1.5;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         * {
           animation-duration: 0.01ms !important;
@@ -761,6 +837,59 @@
         const v = parseFloat(qs.get("volume"));
         if (!isNaN(v)) CONFIG.volume = Math.max(0, Math.min(1, v));
       }
+
+      /* ── OAuth helper ──
+         After the Twitch authorize redirect, the token lands in the URL
+         *fragment* (#access_token=...), not a query param, and Twitch never
+         sends it back through anything but the browser — so this has to
+         happen client-side. Detect it, build the ready-to-paste OBS URL, and
+         scrub the token out of the address bar the moment it's read. */
+      (function oauthHelper() {
+        const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+        const token = hash.get("access_token");
+        if (!token) return;
+        history.replaceState(null, "", location.pathname + location.search);
+
+        const savedClientId = localStorage.getItem("rawad-clientid") || "";
+        const box = document.createElement("div");
+        box.id = "oauthHelper";
+        box.innerHTML =
+          '<div class="card">' +
+          "<h1>Follow-alert token ready</h1>" +
+          '<label>Client ID<input id="ohClientId" spellcheck="false" placeholder="paste your Client ID"></label>' +
+          '<label>OBS browser-source URL<textarea id="ohUrl" readonly spellcheck="false"></textarea></label>' +
+          '<button id="ohCopy" type="button">Copy URL</button>' +
+          '<p class="hint">Paste this whole URL into OBS’s browser source. The token expires in ~60 days.</p>' +
+          "</div>";
+        document.body.appendChild(box);
+
+        const idInput = box.querySelector("#ohClientId");
+        const urlBox = box.querySelector("#ohUrl");
+        const copyBtn = box.querySelector("#ohCopy");
+        idInput.value = savedClientId;
+
+        function rebuild() {
+          const cid = idInput.value.trim();
+          if (cid) localStorage.setItem("rawad-clientid", cid);
+          const base = location.origin + location.pathname;
+          urlBox.value =
+            base +
+            "?live=1&client_id=" +
+            encodeURIComponent(cid || "YOUR_CLIENT_ID") +
+            "&token=" +
+            encodeURIComponent(token);
+        }
+        idInput.addEventListener("input", rebuild);
+        copyBtn.addEventListener("click", () => {
+          urlBox.select();
+          navigator.clipboard
+            .writeText(urlBox.value)
+            .then(() => (copyBtn.textContent = "Copied!"))
+            .catch(() => document.execCommand("copy"));
+          setTimeout(() => (copyBtn.textContent = "Copy URL"), 1600);
+        });
+        rebuild();
+      })();
 
       /* ── rail tick marks ── */
       {
