@@ -2655,17 +2655,127 @@
       /* ═══════════════════ CONTROL BUS WIRING ═══════════════════ */
       Bus.init();
 
+      /* ── settings: panel-controlled and persisted, so they survive a source
+            reload. URL params only seed the default when nothing is saved. ── */
+      function currentSettings() {
+        return {
+          volume: CONFIG.volume,
+          muted: Sound.muted,
+          goalFollows: CONFIG.goalFollows,
+          goalSubs: CONFIG.goalSubs,
+          goalMessages: CONFIG.goalMessages,
+          brbMinutes: CONFIG.brbMinutes,
+          fullMoonMessages: CONFIG.fullMoonMessages,
+          bigCheer: CONFIG.bigCheer,
+        };
+      }
+
+      function applySettings(s, persist) {
+        if (!s) return;
+        if (typeof s.volume === "number") {
+          CONFIG.volume = Math.max(0, Math.min(1, s.volume));
+          Sound.vol = CONFIG.volume;
+        }
+        if (typeof s.muted === "boolean") Sound.muted = s.muted;
+        [
+          "goalFollows",
+          "goalSubs",
+          "goalMessages",
+          "brbMinutes",
+          "fullMoonMessages",
+          "bigCheer",
+        ].forEach((k) => {
+          if (typeof s[k] === "number" && s[k] > 0) CONFIG[k] = s[k];
+        });
+        Scene.paintGoals();
+        if (persist) {
+          try {
+            localStorage.setItem(
+              "rawad-settings",
+              JSON.stringify(currentSettings())
+            );
+          } catch (e) {}
+        }
+      }
+
+      // saved settings win over URL params — the panel is the control surface
+      try {
+        const saved = JSON.parse(localStorage.getItem("rawad-settings") || "null");
+        if (saved) applySettings(saved, false);
+      } catch (e) {}
+
       function busHello() {
         Bus.send("hello", {
           role: SCENE ? "scene" : "hud",
           mode: MODE || "hud",
           demo: DEMO,
+          build: BUILD,
           irc: Status.irc,
           eventsub: Status.eventsub,
           token: Status.token,
-          away: SCENE ? { state: Scene.state, until: Scene.until, since: Scene.since } : null,
+          away: {
+            state: Scene.state,
+            until: Scene.until,
+            since: Scene.since,
+            follows: Scene.follows,
+            subs: Scene.subs,
+            messages: Scene.messages,
+          },
+          tally: tally,
+          poll: poll
+            ? {
+                open: true,
+                a: poll.a,
+                b: poll.b,
+                left: Math.max(0, Math.ceil((poll.ends - Date.now()) / 1000)),
+              }
+            : { open: false },
+          settings: currentSettings(),
         });
       }
+
+      /* ── panel commands ──
+         Every source receives these, which is deliberate: a real Twitch event
+         reaches both too, so the HUD banner and the scene's shooting star stay
+         in step. Handlers that don't apply to a mode no-op harmlessly. */
+      Bus.on("away.brb", (p) => Scene.brb(p.minutes));
+      Bus.on("away.afk", () => Scene.afk());
+      Bus.on("away.back", () => Scene.back());
+      Bus.on("away.reset", () => {
+        if (Scene.state === "afk") Scene.afk();
+        else Scene.brb(Math.round((Scene.until - Scene.since) / 60000));
+      });
+
+      Bus.on("tally.bump", (p) => {
+        const k = p.key;
+        if (!(k in tally)) return;
+        tally[k] = Math.max(0, tally[k] + (parseInt(p.delta) || 0));
+        paint(k, true);
+      });
+      Bus.on("tally.set", (p) => {
+        const k = p.key;
+        if (!(k in tally)) return;
+        tally[k] = Math.max(0, parseInt(p.value) || 0);
+        paint(k, true);
+      });
+
+      Bus.on("poll.open", (p) =>
+        openPoll(p.text || "Yes or no?", p.a || "Yes", p.b || "No")
+      );
+      Bus.on("poll.close", () => {
+        if (poll) closePoll();
+      });
+
+      Bus.on("alert.test", (p) => testAlert(p.kind || "sub", p.user || "test_viewer"));
+      Bus.on("oracle.say", (p) => {
+        if (p.line) say(p.who || "Rawad says —", p.line);
+      });
+      Bus.on("oracle.fate", (p) => {
+        fateLog.delete(p.user || "panel"); // panel shouldn't be rate-limited
+        fate(p.user || "the panel");
+      });
+
+      Bus.on("settings", (p) => applySettings(p, true));
       // answer a panel that just opened, rather than making it wait for the tick
       Bus.on("ping", busHello);
       setInterval(busHello, 2000);
