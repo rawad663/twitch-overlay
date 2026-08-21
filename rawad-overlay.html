@@ -308,6 +308,68 @@
       .stat.hit .v {
         animation: pop 0.7s cubic-bezier(0.16, 1, 0.3, 1);
       }
+
+      /* ─────────────────── LIFETIME MILESTONES ─────────────────── */
+      /* Same safe lane as the strip: between buffs (~x502) and map info (~x1050).
+         Sits under the strip + quiet hint, above the left-rail / notice band. */
+      #goals {
+        position: absolute;
+        left: 520px;
+        top: 100px;
+        width: 520px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      #goals.on {
+        opacity: 1;
+      }
+      #goals .goal {
+        margin-bottom: 8px;
+      }
+      #goals .goal.off {
+        display: none;
+      }
+      #goals .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 10.5px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        font-weight: 600;
+        color: var(--dim);
+        margin-bottom: 4px;
+        text-shadow: 0 1px 6px #000;
+      }
+      #goals .row b {
+        color: var(--cream);
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+      }
+      #goals .bar {
+        height: 3px;
+        background: rgba(243, 238, 228, 0.12);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      #goals .bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: 2px;
+        background: linear-gradient(90deg, var(--deep), var(--violet), var(--rune));
+        box-shadow: 0 0 10px rgba(122, 47, 242, 0.6);
+        transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      #goals .goal.done .bar i {
+        background: linear-gradient(90deg, var(--violet), var(--ember));
+        box-shadow: 0 0 12px rgba(232, 163, 61, 0.75);
+      }
+      #goals .goal.done .row b {
+        color: var(--ember);
+      }
       @keyframes pop {
         0% {
           transform: scale(1);
@@ -578,14 +640,16 @@
       /* ═══════════════════ AFK / BRB SCENE ═══════════════════
          A second OBS source loads this same file with ?mode=. The HUD source
          stays layered on top, so everything here keeps clear of its lanes:
-           strip  x520–1040 y16–92     rail   x26–82  y132–812
-           notice x26–200   y96–112    banner x470–1030 y620–822          */
+           strip  x520–1040 y16–92     goals  x520–1040 y100–150
+           rail   x26–82    y132–812   notice x26–200   y96–112
+           banner x470–1030 y620–822                                      */
       body.scene {
         background: #06040d;
       }
       /* the HUD belongs to the other source — this one draws only the scene */
       body.scene #rail,
       body.scene #strip,
+      body.scene #goals,
       body.scene #poll,
       body.scene #oracle,
       body.scene #notice,
@@ -940,6 +1004,22 @@
         </div>
       </div>
 
+      <!-- ══ LIFETIME MILESTONES ══ -->
+      <div id="goals">
+        <div class="goal off" id="g-follows">
+          <div class="row">
+            <span>Followers</span><b class="num">0 / 0</b>
+          </div>
+          <div class="bar"><i></i></div>
+        </div>
+        <div class="goal off" id="g-subs">
+          <div class="row">
+            <span>Subs</span><b class="num">0 / 0</b>
+          </div>
+          <div class="bar"><i></i></div>
+        </div>
+      </div>
+
       <!-- ══ POLL ══ -->
       <div id="poll">
         <div id="pq">
@@ -1010,6 +1090,12 @@
         goalFollows: 10, // away-session targets
         goalSubs: 3,
         goalMessages: 100,
+
+        // ── HUD lifetime milestones (not the away-scene counters) ──
+        milestoneFollows: 1300,
+        milestoneSubs: 50,
+        showMilestones: true,
+        totalsPollSeconds: 60,
       };
 
       /* ── scale the 1920×1080 stage to whatever the source is sized at ── */
@@ -1524,6 +1610,7 @@
           }
 
           this.pump();
+          if (typeof Milestones !== "undefined") Milestones.paint();
           return evt;
         },
 
@@ -1561,12 +1648,14 @@
           oracle.style.animationDuration = evt.dur + "ms";
           oracle.classList.add("on");
           Sound.play(evt.sound);
+          if (typeof Milestones !== "undefined") Milestones.paint();
 
           setTimeout(() => {
             this.showing = null;
             this.lastEnd = Date.now();
             oracle.classList.remove("on");
             this.pump();
+            if (typeof Milestones !== "undefined") Milestones.paint();
           }, evt.dur);
         },
       };
@@ -1667,6 +1756,7 @@
             becomes one banner instead of twenty ── */
       function alertFollow(user) {
         Scene.note("follow", user);
+        if (typeof Milestones !== "undefined") Milestones.bump("follows", 1);
         const waiting = Director.q.find((e) => e.type === "follow");
         if (waiting) {
           waiting.names.push(user);
@@ -1682,6 +1772,8 @@
       function alertSub(user, months) {
         Scene.note("sub", user);
         const m = parseInt(months) || 0;
+        // resubs are already in the lifetime total — bumping them would overshoot until the next poll
+        if (m <= 1 && typeof Milestones !== "undefined") Milestones.bump("subs", 1);
         if (m > 1)
           Director.push("sub", WHO.resub, phrase("resub", { u: user, n: m }));
         else Director.push("sub", WHO.sub, phrase("sub", { u: user }));
@@ -1694,6 +1786,7 @@
       function alertMassGift(user, count) {
         Scene.note("massgift", user);
         const n = parseInt(count) || 1;
+        if (typeof Milestones !== "undefined") Milestones.bump("subs", n);
         giftBomb.set(user, { left: n, until: Date.now() + 15000 });
         Director.push("massgift", WHO.massgift, phrase("massgift", { u: user, n }));
       }
@@ -1705,6 +1798,7 @@
           return;
         }
         Scene.note("gift", user); // only the gifts that actually announce
+        if (typeof Milestones !== "undefined") Milestones.bump("subs", 1);
         Director.push(
           "gift",
           WHO.gift,
@@ -1795,6 +1889,7 @@
         document.getElementById("pB").textContent = b + " !2";
         pollEl.classList.add("on");
         oracle.classList.add("lowered"); // keep clear of a banner already showing
+        if (typeof Milestones !== "undefined") Milestones.paint();
         clearInterval(pollTimer);
         pollTimer = setInterval(tickPoll, 250);
         tickPoll();
@@ -1816,6 +1911,7 @@
         setTimeout(() => {
           pollEl.classList.remove("on");
           oracle.classList.remove("lowered");
+          if (typeof Milestones !== "undefined") Milestones.paint();
         }, 4000);
         if (tot)
           say(
@@ -2130,6 +2226,168 @@
         }
       }
 
+      /* ═══════════════════ LIFETIME MILESTONES ═══════════════════
+         HUD-only. Polls Helix for follower/sub totals against dock-set
+         targets. Away-scene goalFollows/goalSubs stay session counters. */
+      const Milestones = {
+        el: document.getElementById("goals"),
+        rows: {
+          follows: document.getElementById("g-follows"),
+          subs: document.getElementById("g-subs"),
+        },
+        follows: null,
+        subs: null,
+        followsState: "off",
+        subsState: "off",
+        timer: null,
+
+        fmt(n) {
+          return Number(n || 0).toLocaleString("en-US");
+        },
+
+        snapshot() {
+          return {
+            follows: this.follows,
+            subs: this.subs,
+            followsState: this.followsState,
+            subsState: this.subsState,
+          };
+        },
+
+        rowOn(kind) {
+          const st = this[kind + "State"];
+          const n = this[kind];
+          return st === "ok" || (n != null && st === "error");
+        },
+
+        paint() {
+          if (!this.el) return;
+          const any = this.rowOn("follows") || this.rowOn("subs");
+          const hide =
+            SCENE ||
+            !CONFIG.showMilestones ||
+            !any ||
+            hintSuppressed();
+          this.el.classList.toggle("on", !hide);
+
+          [
+            ["follows", CONFIG.milestoneFollows],
+            ["subs", CONFIG.milestoneSubs],
+          ].forEach(([kind, target]) => {
+            const row = this.rows[kind];
+            if (!row) return;
+            const on = this.rowOn(kind);
+            row.classList.toggle("off", !on);
+            if (!on) return;
+            const val = this[kind] || 0;
+            const tgt = target > 0 ? target : 1;
+            const pct = Math.min(100, (val / tgt) * 100);
+            const txt = this.fmt(val) + " / " + this.fmt(tgt);
+            const b = row.querySelector("b");
+            const i = row.querySelector("i");
+            if (b.textContent !== txt) b.textContent = txt;
+            if (i.style.width !== pct + "%") i.style.width = pct + "%";
+            row.classList.toggle("done", val >= tgt);
+          });
+        },
+
+        bump(kind, n) {
+          n = parseInt(n) || 1;
+          if (!this.rowOn(kind) || this[kind] == null) return;
+          this[kind] += n;
+          this.paint();
+        },
+
+        async ensureUser() {
+          if (userId) return userId;
+          if (!TOKEN || !CLIENT_ID) return null;
+          try {
+            const r = await helix(
+              "users?login=" + encodeURIComponent(CONFIG.channel)
+            );
+            if (r.status === 401) {
+              this.followsState = this.subsState = "expired";
+              showNotice("twitch token expired");
+              return null;
+            }
+            const j = await r.json();
+            userId = j.data && j.data[0] && j.data[0].id;
+            return userId || null;
+          } catch (e) {
+            return null;
+          }
+        },
+
+        async fetchTotal(path) {
+          try {
+            const r = await helix(path);
+            if (r.status === 401) return { state: "expired" };
+            if (r.status === 403) return { state: "noscope" };
+            if (!r.ok) return { state: "error" };
+            const j = await r.json();
+            if (typeof j.total !== "number") return { state: "error" };
+            return { state: "ok", total: j.total };
+          } catch (e) {
+            return { state: "error" };
+          }
+        },
+
+        apply(kind, result) {
+          if (result.state === "ok") {
+            this[kind] = result.total;
+            this[kind + "State"] = "ok";
+            return;
+          }
+          if (result.state === "expired" || result.state === "noscope") {
+            // a 401 on subs while follows still works is almost always a missing scope
+            if (
+              kind === "subs" &&
+              result.state === "expired" &&
+              this.followsState === "ok"
+            ) {
+              this.subsState = "noscope";
+            } else {
+              this[kind + "State"] = result.state;
+            }
+            if (kind === "follows" && result.state === "expired")
+              showNotice("twitch token expired");
+            return;
+          }
+          if (this[kind] == null) this[kind + "State"] = result.state;
+        },
+
+        async refresh() {
+          if (SCENE || !TOKEN || !CLIENT_ID) {
+            this.followsState = this.subsState = "off";
+            this.paint();
+            return;
+          }
+          const id = await this.ensureUser();
+          if (!id) {
+            this.paint();
+            return;
+          }
+          const [f, s] = await Promise.all([
+            this.fetchTotal(
+              "channels/followers?broadcaster_id=" + id + "&first=1"
+            ),
+            this.fetchTotal("subscriptions?broadcaster_id=" + id + "&first=1"),
+          ]);
+          this.apply("follows", f);
+          this.apply("subs", s);
+          this.paint();
+        },
+
+        start() {
+          if (SCENE || this.timer) return;
+          this.refresh();
+          this.timer = setInterval(
+            () => this.refresh(),
+            (CONFIG.totalsPollSeconds || 60) * 1000
+          );
+        },
+      };
+
       /* ═══════════════════ AFK / BRB SCENE ═══════════════════
          Runs in a second OBS browser source (?mode=afk / ?mode=brb) layered
          under the HUD. Everything is drawn on one canvas; the loop pauses when
@@ -2162,6 +2420,7 @@
         /* ── geometry: the HUD owns these, so nothing of ours may land in them ── */
         blocked: [
           [520, 16, 1040, 92], // top strip + quiet hint
+          [520, 96, 1040, 154], // lifetime milestones
           [26, 132, 82, 812], // left rail
           [26, 96, 200, 112], // token notice
           [470, 620, 1030, 822], // poll + alert banner
@@ -2672,6 +2931,9 @@
           goalFollows: CONFIG.goalFollows,
           goalSubs: CONFIG.goalSubs,
           goalMessages: CONFIG.goalMessages,
+          milestoneFollows: CONFIG.milestoneFollows,
+          milestoneSubs: CONFIG.milestoneSubs,
+          showMilestones: CONFIG.showMilestones,
           brbMinutes: CONFIG.brbMinutes,
           fullMoonMessages: CONFIG.fullMoonMessages,
           bigCheer: CONFIG.bigCheer,
@@ -2685,10 +2947,14 @@
           Sound.vol = CONFIG.volume;
         }
         if (typeof s.muted === "boolean") Sound.muted = s.muted;
+        if (typeof s.showMilestones === "boolean")
+          CONFIG.showMilestones = s.showMilestones;
         [
           "goalFollows",
           "goalSubs",
           "goalMessages",
+          "milestoneFollows",
+          "milestoneSubs",
           "brbMinutes",
           "fullMoonMessages",
           "bigCheer",
@@ -2696,6 +2962,7 @@
           if (typeof s[k] === "number" && s[k] > 0) CONFIG[k] = s[k];
         });
         Scene.paintGoals();
+        Milestones.paint();
         if (persist) {
           try {
             localStorage.setItem(
@@ -2721,6 +2988,7 @@
           irc: Status.irc,
           eventsub: Status.eventsub,
           token: Status.token,
+          clientId: CLIENT_ID || "",
           away: {
             state: Scene.state,
             until: Scene.until,
@@ -2739,6 +3007,7 @@
               }
             : { open: false },
           settings: currentSettings(),
+          totals: SCENE ? undefined : Milestones.snapshot(),
         });
       }
 
@@ -2869,6 +3138,7 @@
       } else {
         connect();
         followsInit();
+        if (TOKEN && CLIENT_ID) Milestones.start();
       }
 
       // a normal browser tab keeps audio suspended until a gesture; OBS doesn't care

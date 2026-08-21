@@ -453,6 +453,53 @@
       </section>
 
       <section>
+        <h2>Milestones</h2>
+        <div id="mileLive" class="hint" style="margin: 0 0 9px">
+          Waiting for totals from the HUD…
+        </div>
+        <div class="row2">
+          <div style="flex: 1">
+            <label class="f" for="mFollows">Followers</label>
+            <input type="number" id="mFollows" min="1" value="1300" />
+          </div>
+          <div style="flex: 1">
+            <label class="f" for="mSubs">Subs</label>
+            <input type="number" id="mSubs" min="1" value="50" />
+          </div>
+        </div>
+        <div class="row2" style="margin-top: 8px">
+          <button class="sm ghost" id="bMileHide" type="button">Hide on HUD</button>
+        </div>
+        <div id="authNeed" class="verdict" style="display: none; margin-top: 11px">
+          Sub totals need a token with <code>channel:read:subscriptions</code>.
+          Copy the URL below, open it in a normal browser (not this dock),
+          then paste the overlay’s generated OBS URL into the HUD source.
+        </div>
+        <label class="f" for="authClientId">Client ID</label>
+        <input
+          type="text"
+          id="authClientId"
+          spellcheck="false"
+          placeholder="Twitch app client id"
+        />
+        <label class="f" for="authUrl">Authorize URL</label>
+        <div class="row2">
+          <input
+            type="text"
+            id="authUrl"
+            readonly
+            spellcheck="false"
+            style="flex: 1; width: auto"
+          />
+          <button class="sm ghost" id="bCopyAuth" type="button">Copy</button>
+        </div>
+        <div class="hint">
+          Lifetime totals, polled from Twitch. Open the authorize URL in a
+          browser — navigating this dock would kill the panel.
+        </div>
+      </section>
+
+      <section>
         <h2>Diagnostics</h2>
         <div id="diag"></div>
         <div id="verdict" class="verdict"></div>
@@ -679,7 +726,7 @@
 
       /* Latest state from any source. Sources all report the same thing, so
          last-in wins; only used for readouts, never as a source of truth. */
-      let live = { away: null, tally: null, poll: null, settings: null };
+      let live = { away: null, tally: null, poll: null, settings: null, totals: null, clientId: "" };
       let editing = null; // don't clobber a field while it's being typed in
 
       Bus.on("hello", (p) => {
@@ -687,6 +734,8 @@
         if (p.tally) live.tally = p.tally;
         if (p.poll) live.poll = p.poll;
         if (p.settings) live.settings = p.settings;
+        if (p.totals) live.totals = p.totals;
+        if (p.clientId) live.clientId = p.clientId;
         paintLive();
       });
 
@@ -819,6 +868,7 @@
          Not confirmed via toast — the volume slider fires on every drag tick,
          and a toast per tick would be noise, not signal. */
       let muted = false;
+      let showMilestones = true;
       function pushSettings() {
         Bus.send("settings", {
           volume: (parseInt($("vol").value) || 0) / 100,
@@ -826,6 +876,9 @@
           goalFollows: parseInt($("gFollows").value) || 10,
           goalSubs: parseInt($("gSubs").value) || 3,
           goalMessages: parseInt($("gMessages").value) || 100,
+          milestoneFollows: parseInt($("mFollows").value) || 1300,
+          milestoneSubs: parseInt($("mSubs").value) || 50,
+          showMilestones,
         });
       }
       on("vol", "input", () => {
@@ -838,9 +891,53 @@
         $("bMute").classList.toggle("warn", muted);
         pushSettings();
       });
-      ["gFollows", "gSubs", "gMessages"].forEach((id) =>
+      ["gFollows", "gSubs", "gMessages", "mFollows", "mSubs"].forEach((id) =>
         on(id, "change", pushSettings)
       );
+
+      on("bMileHide", "click", () => {
+        showMilestones = !showMilestones;
+        $("bMileHide").textContent = showMilestones ? "Hide on HUD" : "Show on HUD";
+        $("bMileHide").classList.toggle("warn", !showMilestones);
+        pushSettings();
+      });
+
+      const AUTH_SCOPES = "moderator:read:followers channel:read:subscriptions";
+      function overlayRedirect() {
+        return (
+          location.origin +
+          location.pathname.replace(/admin\.html$/i, "rawad-overlay.html")
+        );
+      }
+      function rebuildAuth() {
+        const cid = $("authClientId").value.trim();
+        try {
+          if (cid) localStorage.setItem("rawad-clientid", cid);
+        } catch (e) {}
+        $("authUrl").value =
+          "https://id.twitch.tv/oauth2/authorize?client_id=" +
+          encodeURIComponent(cid || "YOUR_CLIENT_ID") +
+          "&redirect_uri=" +
+          encodeURIComponent(overlayRedirect()) +
+          "&response_type=token&scope=" +
+          encodeURIComponent(AUTH_SCOPES);
+      }
+      try {
+        $("authClientId").value = localStorage.getItem("rawad-clientid") || "";
+      } catch (e) {}
+      on("authClientId", "input", rebuildAuth);
+      rebuildAuth();
+      on("bCopyAuth", "click", (e) => {
+        const btn = e.currentTarget;
+        $("authUrl").select();
+        navigator.clipboard.writeText($("authUrl").value).then(
+          () => {
+            btn.textContent = "Copied!";
+            setTimeout(() => (btn.textContent = "Copy"), 1500);
+          },
+          () => {}
+        );
+      });
 
       /* ── live readouts ── */
       function paintLive() {
@@ -897,9 +994,55 @@
             ["gFollows", "goalFollows"],
             ["gSubs", "goalSubs"],
             ["gMessages", "goalMessages"],
+            ["mFollows", "milestoneFollows"],
+            ["mSubs", "milestoneSubs"],
           ].forEach(([id, key]) => {
             if (editing !== id && s[key] != null) $(id).value = s[key];
           });
+          if (typeof s.showMilestones === "boolean" && s.showMilestones !== showMilestones) {
+            showMilestones = s.showMilestones;
+            $("bMileHide").textContent = showMilestones ? "Hide on HUD" : "Show on HUD";
+            $("bMileHide").classList.toggle("warn", !showMilestones);
+          }
+        }
+
+        const t = live.totals;
+        if (t) {
+          const fmtN = (n) => Number(n || 0).toLocaleString("en-US");
+          const bits = [];
+          if (t.followsState === "ok" && t.follows != null)
+            bits.push(fmtN(t.follows) + " followers");
+          else if (t.followsState === "expired")
+            bits.push("followers — token expired");
+          else if (t.followsState === "off")
+            bits.push("followers — no token");
+          else if (t.follows != null)
+            bits.push(fmtN(t.follows) + " followers");
+
+          if (t.subsState === "ok" && t.subs != null)
+            bits.push(fmtN(t.subs) + " subs");
+          else if (t.subsState === "noscope" || t.subsState === "expired")
+            bits.push("subs — token missing channel:read:subscriptions");
+          else if (t.subsState === "off")
+            bits.push("subs — no token");
+          else if (t.subs != null) bits.push(fmtN(t.subs) + " subs");
+
+          $("mileLive").textContent = bits.length
+            ? bits.join(" · ")
+            : "No totals yet.";
+
+          const needAuth =
+            t.subsState === "noscope" ||
+            t.subsState === "expired" ||
+            t.subsState === "off";
+          $("authNeed").style.display = needAuth ? "block" : "none";
+        }
+
+        if (live.clientId && editing !== "authClientId") {
+          if ($("authClientId").value !== live.clientId) {
+            $("authClientId").value = live.clientId;
+            rebuildAuth();
+          }
         }
 
         // controls do nothing without a source — grey them out rather than

@@ -71,15 +71,29 @@ Outside OBS, the overlay auto-demos unless you pass `?live=1`.
 | `!afk` | Start AFK |
 | `!back` | End away |
 
-## Follow alerts
+## Follow alerts and milestones
 
-IRC covers chat, bits, subs, gifts, and raids anonymously. Follows need a Twitch app + token.
+IRC covers chat, bits, subs, gifts, and raids anonymously. Follow alerts and the HUD lifetime counters need a Twitch app + token.
 
-1. Create an app at [Twitch Developer Console](https://dev.twitch.tv/console/apps). Redirect URI = the Pages overlay URL.
-2. Authorize with the implicit grant (`response_type=token`) so Twitch lands on the overlay with `#access_token=…`.
-3. The overlay’s helper builds a ready-to-paste OBS URL (`?live=1&client_id=…&token=…`) and scrubs the token from the address bar.
+Normal path: the admin dock’s **Milestones** section builds the authorize URL. Copy it, open it in a **normal browser** (not the dock), allow, then paste the overlay’s generated OBS URL into the HUD browser source.
 
-Token lasts ~60 days. An expired token only disables follow alerts; everything else still works.
+Fallback if no source is running:
+
+```
+https://id.twitch.tv/oauth2/authorize
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://rawad663.github.io/twitch-overlay/rawad-overlay.html
+  &response_type=token
+  &scope=moderator:read:followers+channel:read:subscriptions
+```
+
+- `moderator:read:followers` — follow alerts (EventSub)
+- `channel:read:subscriptions` — sub milestone total
+- Follower totals work with any valid token, even without those scopes
+
+Redirect URI on the Twitch app must be the Pages overlay URL. Token lasts ~60 days and stays in the OBS source URL, never in the file. An expired token only disables follow alerts and the milestone widget; everything else still works.
+
+HUD milestones are **lifetime** totals (e.g. `1,247 / 1,300 FOLLOWERS`) against targets set in the dock. The away scene’s Follows / Subs / Messages goals remain **session** counters from while you’re AFK.
 
 ## Preview
 
