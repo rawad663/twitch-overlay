@@ -284,6 +284,10 @@
         min-width: 34px;
         text-align: right;
       }
+      .tally .tset {
+        padding: 5px 7px;
+        font-size: 12px;
+      }
       button.sm {
         margin: 0;
         padding: 6px 10px;
@@ -307,6 +311,37 @@
       .disabled {
         opacity: 0.4;
         pointer-events: none;
+      }
+
+      #toast {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        padding: 9px 12px;
+        border-radius: 3px;
+        font-size: 12.5px;
+        font-weight: 600;
+        border: 1px solid;
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 0.2s, transform 0.2s;
+        pointer-events: none;
+        z-index: 50;
+      }
+      #toast.show {
+        opacity: 1;
+        transform: none;
+      }
+      #toast.ok {
+        background: rgba(88, 201, 138, 0.14);
+        border-color: rgba(88, 201, 138, 0.4);
+        color: var(--good);
+      }
+      #toast.no {
+        background: rgba(232, 97, 93, 0.14);
+        border-color: rgba(232, 97, 93, 0.45);
+        color: var(--bad);
       }
 
       button {
@@ -424,6 +459,7 @@
         <button id="copyDiag" type="button">Copy diagnostics</button>
       </section>
     </div>
+    <div id="toast"></div>
 
     <script>
       /* ═══════════════════ CONTROL BUS ═══════════════════
@@ -488,6 +524,7 @@
           try {
             localStorage.setItem(BUS_KEY, JSON.stringify(msg));
           } catch (e) {}
+          return msg.id;
         },
 
         on(type, fn) {
@@ -495,16 +532,22 @@
           return this;
         },
 
+        // admin never auto-acks (Bus.role stays unset here) — only overlay
+        // sources prove receipt, so the ledger only ever reflects them
         deliver(msg) {
           if (!msg || msg.v !== 1 || msg.from === this.id) return;
           if (this.seen.indexOf(msg.id) !== -1) return;
           this.seen.push(msg.id);
           if (this.seen.length > 200) this.seen.splice(0, 100);
-          (this.handlers[msg.type] || []).forEach((fn) => {
+          const list = this.handlers[msg.type] || [];
+          list.forEach((fn) => {
             try {
               fn(msg.payload, msg);
             } catch (e) {}
           });
+          if (list.length && this.role && msg.type !== "ping" && msg.type !== "ack") {
+            this.send("ack", { forId: msg.id, forType: msg.type, role: this.role });
+          }
         },
       };
 
@@ -598,6 +641,42 @@
       const $ = (id) => document.getElementById(id);
       const on = (id, ev, fn) => $(id).addEventListener(ev, fn);
 
+      /* Every action reports whether it actually reached a source. Without
+         this, a hidden/off-scene OBS source and a real bug look identical —
+         nothing visibly happens either way. This makes the difference
+         provable in the panel itself instead of guessed at. */
+      const ackLedger = {}; // msgId -> Set of roles that acknowledged it
+      const toastEl = document.getElementById("toast");
+      let toastTimer = null;
+
+      Bus.on("ack", (p, msg) => {
+        if (ackLedger[p.forId]) ackLedger[p.forId].add(p.role || msg.from);
+      });
+
+      function toast(text, ok) {
+        clearTimeout(toastTimer);
+        toastEl.textContent = text;
+        toastEl.className = ok ? "show ok" : "show no";
+        toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3200);
+      }
+
+      function sendAndConfirm(type, payload, label) {
+        const id = Bus.send(type, payload);
+        ackLedger[id] = new Set();
+        setTimeout(() => {
+          const acks = ackLedger[id];
+          delete ackLedger[id];
+          const n = acks ? acks.size : 0;
+          toast(
+            n > 0
+              ? "✓ " + (label || type) + " — reached " + n + " source" + (n > 1 ? "s" : "")
+              : "✕ " + (label || type) + " — no source responded. Is it visible in OBS?",
+            n > 0
+          );
+        }, 1000);
+        return id;
+      }
+
       /* Latest state from any source. Sources all report the same thing, so
          last-in wins; only used for readouts, never as a source of truth. */
       let live = { away: null, tally: null, poll: null, settings: null };
@@ -628,11 +707,15 @@
       };
 
       on("bBrb", "click", () =>
-        Bus.send("away.brb", { minutes: parseInt($("brbMin").value) || 15 })
+        sendAndConfirm(
+          "away.brb",
+          { minutes: parseInt($("brbMin").value) || 15 },
+          "BRB"
+        )
       );
-      on("bAfk", "click", () => Bus.send("away.afk"));
-      on("bBack", "click", () => Bus.send("away.back"));
-      on("bReset", "click", () => Bus.send("away.reset"));
+      on("bAfk", "click", () => sendAndConfirm("away.afk", {}, "AFK"));
+      on("bBack", "click", () => sendAndConfirm("away.back", {}, "Back"));
+      on("bReset", "click", () => sendAndConfirm("away.reset", {}, "Reset"));
 
       /* ── tallies ── */
       const TALLY_KEYS = ["maps", "deaths", "mirrors"];
@@ -649,28 +732,51 @@
           '<button class="sm" data-t="' +
           esc(k) +
           '" data-d="1" type="button">+</button>' +
+          '<input type="number" class="tset" data-t="' +
+          esc(k) +
+          '" placeholder="set…" style="width: 64px" />' +
           '<button class="sm ghost" data-t="' +
           esc(k) +
-          '" data-z="1" type="button">0</button></div>'
+          '" data-set="1" type="button">Set</button></div>'
       ).join("");
+
+      function setTally(k) {
+        const input = $("tallies").querySelector('.tset[data-t="' + k + '"]');
+        const v = parseInt(input.value);
+        if (isNaN(v) || v < 0) return;
+        sendAndConfirm("tally.set", { key: k, value: v }, "Set " + k);
+        input.value = "";
+      }
 
       $("tallies").addEventListener("click", (e) => {
         const b = e.target.closest("button");
         if (!b) return;
         const k = b.dataset.t;
-        if (b.dataset.z) Bus.send("tally.set", { key: k, value: 0 });
-        else Bus.send("tally.bump", { key: k, delta: parseInt(b.dataset.d) });
+        if (b.dataset.set) return setTally(k);
+        sendAndConfirm(
+          "tally.bump",
+          { key: k, delta: parseInt(b.dataset.d) },
+          k + " " + (b.dataset.d === "1" ? "+1" : "-1")
+        );
+      });
+      $("tallies").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && e.target.classList.contains("tset"))
+          setTally(e.target.dataset.t);
       });
 
       /* ── poll ── */
       on("bPoll", "click", () =>
-        Bus.send("poll.open", {
-          text: $("pq").value.trim() || "Yes or no?",
-          a: $("pa").value.trim() || "Yes",
-          b: $("pb").value.trim() || "No",
-        })
+        sendAndConfirm(
+          "poll.open",
+          {
+            text: $("pq").value.trim() || "Yes or no?",
+            a: $("pa").value.trim() || "Yes",
+            b: $("pb").value.trim() || "No",
+          },
+          "Open poll"
+        )
       );
-      on("bEndPoll", "click", () => Bus.send("poll.close"));
+      on("bEndPoll", "click", () => sendAndConfirm("poll.close", {}, "End poll"));
 
       /* ── alerts ── */
       const ALERTS = [
@@ -694,21 +800,24 @@
       ).join("");
       $("alertBtns").addEventListener("click", (e) => {
         const b = e.target.closest("button");
-        if (b) Bus.send("alert.test", { kind: b.dataset.a });
+        if (b)
+          sendAndConfirm("alert.test", { kind: b.dataset.a }, "Alert: " + b.dataset.a);
       });
 
       on("bSay", "click", () => {
         const line = $("oracleLine").value.trim();
         if (!line) return;
-        Bus.send("oracle.say", { line });
+        sendAndConfirm("oracle.say", { line }, "Oracle message");
         $("oracleLine").value = "";
       });
       on("oracleLine", "keydown", (e) => {
         if (e.key === "Enter") $("bSay").click();
       });
-      on("bFate", "click", () => Bus.send("oracle.fate", {}));
+      on("bFate", "click", () => sendAndConfirm("oracle.fate", {}, "Fate"));
 
-      /* ── settings ── */
+      /* ── settings ──
+         Not confirmed via toast — the volume slider fires on every drag tick,
+         and a toast per tick would be noise, not signal. */
       let muted = false;
       function pushSettings() {
         Bus.send("settings", {

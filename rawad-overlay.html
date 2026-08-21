@@ -1100,6 +1100,7 @@
           try {
             localStorage.setItem(BUS_KEY, JSON.stringify(msg));
           } catch (e) {}
+          return msg.id;
         },
 
         on(type, fn) {
@@ -1112,11 +1113,17 @@
           if (this.seen.indexOf(msg.id) !== -1) return;
           this.seen.push(msg.id);
           if (this.seen.length > 200) this.seen.splice(0, 100);
-          (this.handlers[msg.type] || []).forEach((fn) => {
+          const list = this.handlers[msg.type] || [];
+          list.forEach((fn) => {
             try {
               fn(msg.payload, msg);
             } catch (e) {}
           });
+          // prove receipt back to whoever sent it — "nothing happened" should
+          // never be a silent question, it should be an answerable one
+          if (list.length && msg.type !== "ping" && msg.type !== "ack") {
+            this.send("ack", { forId: msg.id, forType: msg.type, role: this.role });
+          }
         },
       };
 
@@ -2654,6 +2661,7 @@
 
       /* ═══════════════════ CONTROL BUS WIRING ═══════════════════ */
       Bus.init();
+      Bus.role = SCENE ? "scene" : "hud";
 
       /* ── settings: panel-controlled and persisted, so they survive a source
             reload. URL params only seed the default when nothing is saved. ── */
