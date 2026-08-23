@@ -991,17 +991,7 @@
           </div>
         </div>
 
-        <div id="tally">
-          <div class="stat" id="s-maps">
-            <span class="v num">0</span><span class="k">Maps</span>
-          </div>
-          <div class="stat" id="s-deaths">
-            <span class="v num">0</span><span class="k">Deaths</span>
-          </div>
-          <div class="stat" id="s-mirrors">
-            <span class="v num">0</span><span class="k">Mirrors</span>
-          </div>
-        </div>
+        <div id="tally"></div>
       </div>
 
       <!-- ══ LIFETIME MILESTONES ══ -->
@@ -1855,25 +1845,81 @@
         cheerLog.set(user, { at: now, total: n, evt });
       }
 
-      /* ═══════════════════ TALLIES ═══════════════════ */
-      const KEYS = {
-        map: "maps",
-        maps: "maps",
-        death: "deaths",
-        deaths: "deaths",
-        mirror: "mirrors",
-        mirrors: "mirrors",
-      };
-      let tally = { maps: 0, deaths: 0, mirrors: 0 };
-      try {
-        Object.assign(
-          tally,
-          JSON.parse(localStorage.getItem("rawad-tally") || "{}")
+      /* ═══════════════════ TALLIES ═══════════════════
+         Definitions (key + label) are panel-controlled via settings, so
+         custom tallies survive a source reload just like goals/milestones. */
+      const DEFAULT_TALLY_DEFS = [
+        { key: "maps", label: "Maps" },
+        { key: "deaths", label: "Deaths" },
+        { key: "mirrors", label: "Mirrors" },
+      ];
+      let tallyDefs = DEFAULT_TALLY_DEFS.map((d) => Object.assign({}, d));
+      let KEYS = {};
+      let tally = {};
+      const tallyBox = document.getElementById("tally");
+
+      // command word -> stored key, keeping the old singular/plural alias
+      function rebuildKeys() {
+        KEYS = {};
+        tallyDefs.forEach((d) => {
+          KEYS[d.key] = d.key;
+          KEYS[d.key.endsWith("s") ? d.key.slice(0, -1) : d.key + "s"] = d.key;
+        });
+      }
+
+      function renderTallyDOM() {
+        tallyBox.innerHTML = tallyDefs
+          .map(
+            (d) =>
+              '<div class="stat" id="s-' +
+              d.key +
+              '"><span class="v num">' +
+              (tally[d.key] || 0) +
+              '</span><span class="k">' +
+              esc(d.label) +
+              "</span></div>"
+          )
+          .join("");
+      }
+
+      // safe DOM id / chat-command token — labels stay free text, keys don't
+      function slugKey(s) {
+        return (
+          String(s || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "")
+            .slice(0, 24) || "tally"
         );
-      } catch (e) {}
+      }
+
+      function applyTallyDefs(defs) {
+        const seen = new Set();
+        const clean = (Array.isArray(defs) ? defs : [])
+          .map((d) => ({
+            key: slugKey(d && d.key),
+            label:
+              String((d && d.label) || "")
+                .trim()
+                .slice(0, 24) || "Tally",
+          }))
+          .filter((d) => {
+            if (seen.has(d.key)) return false;
+            seen.add(d.key);
+            return true;
+          });
+        tallyDefs = clean.length
+          ? clean
+          : DEFAULT_TALLY_DEFS.map((d) => Object.assign({}, d));
+        rebuildKeys();
+        const nextTally = {};
+        tallyDefs.forEach((d) => (nextTally[d.key] = tally[d.key] || 0));
+        tally = nextTally;
+        renderTallyDOM();
+      }
 
       function paint(key, bump) {
         const box = document.getElementById("s-" + key);
+        if (!box) return; // definition changed out from under an in-flight bump
         box.querySelector(".v").textContent = tally[key];
         if (bump) {
           box.classList.remove("hit");
@@ -1884,6 +1930,14 @@
           localStorage.setItem("rawad-tally", JSON.stringify(tally));
         } catch (e) {}
       }
+
+      applyTallyDefs(DEFAULT_TALLY_DEFS);
+      try {
+        Object.assign(
+          tally,
+          JSON.parse(localStorage.getItem("rawad-tally") || "{}")
+        );
+      } catch (e) {}
       Object.keys(tally).forEach((k) => paint(k, false));
 
       /* ═══════════════════ POLL ═══════════════════ */
@@ -2957,6 +3011,7 @@
           brbMinutes: CONFIG.brbMinutes,
           fullMoonMessages: CONFIG.fullMoonMessages,
           bigCheer: CONFIG.bigCheer,
+          tallyDefs: tallyDefs,
         };
       }
 
@@ -2969,6 +3024,7 @@
         if (typeof s.muted === "boolean") Sound.muted = s.muted;
         if (typeof s.showMilestones === "boolean")
           CONFIG.showMilestones = s.showMilestones;
+        if (Array.isArray(s.tallyDefs)) applyTallyDefs(s.tallyDefs);
         [
           "goalFollows",
           "goalSubs",
@@ -3149,9 +3205,7 @@
           }, 600);
         }, 8000);
         setTimeout(() => {
-          tally.maps = 14;
-          tally.deaths = 3;
-          tally.mirrors = 1;
+          tallyDefs.forEach((d) => (tally[d.key] = 1 + ((Math.random() * 14) | 0)));
           Object.keys(tally).forEach((k) => paint(k, true));
         }, 1400);
         Status.irc = "demo"; // never connects in demo — don't report "connecting" forever

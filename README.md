@@ -60,9 +60,9 @@ Outside OBS, the overlay auto-demos unless you pass `?live=1`.
 
 | Command | Action |
 |---------|--------|
-| `!map` / `!death` / `!mirror` | Bump a tally (`maps` / `deaths` also work) |
-| `!undo <key>` | Decrement a tally |
-| `!set <key> <n>` | Set a tally |
+| `!<command>` | Bump a tally, e.g. `!map` or `!maps` (both singular and plural work) |
+| `!undo <command>` | Decrement a tally |
+| `!set <command> <n>` | Set a tally |
 | `!poll Question \| Yes \| No` | Open a 60s poll |
 | `!endpoll` | Close the poll |
 | `!say <text>` | Oracle banner |
@@ -70,6 +70,10 @@ Outside OBS, the overlay auto-demos unless you pass `?live=1`.
 | `!brb [minutes]` | Start BRB |
 | `!afk` | Start AFK |
 | `!back` | End away |
+
+## Tallies
+
+The HUD's tally strip (default: Maps / Deaths / Mirrors) is fully editable from the admin dock's **Tallies** section — rename the label, rename the chat command, remove a tally, or add new ones with **+ Add tally**. Each tally's command word doubles as its storage key (`maps` → `!map`/`!maps` both bump it); typing a new command auto-slugs it to lowercase letters/digits. Changes push live to every open source and persist like the other settings.
 
 ## New chatters
 

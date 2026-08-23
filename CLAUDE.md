@@ -39,8 +39,8 @@ admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay 
 |-----|--------|---------|
 | `rawad-control-msg` | Bus | Last bus message |
 | `rawad-presence` | overlay, every 2s, **not** via Bus | Dock diagnostics: storage shared vs messaging dead |
-| `rawad-tally` | HUD | `{ maps, deaths, mirrors }` |
-| `rawad-settings` | overlay via panel `settings` | Volume, mute, away goals, milestone targets |
+| `rawad-tally` | HUD | `{ [key]: count }` — keys come from `tallyDefs` |
+| `rawad-settings` | overlay via panel `settings` | Volume, mute, away goals, milestone targets, `tallyDefs` (`[{key, label}]`) |
 | `rawad-clientid` | OAuth helper | Remembered public client id |
 
 ### Bus types

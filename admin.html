@@ -263,19 +263,38 @@
         font-weight: 700;
         margin-bottom: 2px;
       }
+      .tallyItem {
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      .tallyItem:last-child {
+        border-bottom: none;
+      }
+      .tallyEdit {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .tallyEdit .lbl {
+        flex: 1;
+        min-width: 0;
+        font-weight: 700;
+      }
+      .tallyEdit .key {
+        width: 76px;
+        font-family: monospace;
+        color: var(--dim);
+      }
+      .tallyEdit .rm {
+        color: var(--bad);
+        padding: 6px 9px;
+      }
       .tally {
         display: flex;
         align-items: center;
         gap: 7px;
-        margin-bottom: 7px;
-      }
-      .tally .name {
-        flex: 1;
-        font-size: 11.5px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        font-weight: 700;
-        color: var(--dim);
       }
       .tally .val {
         font-family: "Barlow Condensed", sans-serif;
@@ -401,6 +420,7 @@
       <section>
         <h2>Tallies</h2>
         <div id="tallies"></div>
+        <button class="sm ghost" id="bAddTally" type="button">+ Add tally</button>
       </section>
 
       <section>
@@ -734,6 +754,19 @@
         if (p.tally) live.tally = p.tally;
         if (p.poll) live.poll = p.poll;
         if (p.settings) live.settings = p.settings;
+        if (
+          !tallyDefsSeeded &&
+          p.settings &&
+          Array.isArray(p.settings.tallyDefs) &&
+          p.settings.tallyDefs.length
+        ) {
+          tallyDefsSeeded = true;
+          tallyDefs = p.settings.tallyDefs.map((d) => ({
+            key: slugKey(d.key),
+            label: d.label || d.key,
+          }));
+          renderTallies();
+        }
         if (p.totals) live.totals = p.totals;
         if (p.clientId) live.clientId = p.clientId;
         paintLive();
@@ -766,28 +799,70 @@
       on("bBack", "click", () => sendAndConfirm("away.back", {}, "Back"));
       on("bReset", "click", () => sendAndConfirm("away.reset", {}, "Reset"));
 
-      /* ── tallies ── */
-      const TALLY_KEYS = ["maps", "deaths", "mirrors"];
-      $("tallies").innerHTML = TALLY_KEYS.map(
-        (k) =>
-          '<div class="tally"><span class="name">' +
-          esc(k) +
-          '</span><span class="val" id="tv-' +
-          esc(k) +
-          '">0</span>' +
-          '<button class="sm ghost" data-t="' +
-          esc(k) +
-          '" data-d="-1" type="button">−</button>' +
-          '<button class="sm" data-t="' +
-          esc(k) +
-          '" data-d="1" type="button">+</button>' +
-          '<input type="number" class="tset" data-t="' +
-          esc(k) +
-          '" placeholder="set…" style="width: 64px" />' +
-          '<button class="sm ghost" data-t="' +
-          esc(k) +
-          '" data-set="1" type="button">Set</button></div>'
-      ).join("");
+      /* ── tallies ──
+         Definitions (key + label) are the panel's own state, pushed to sources
+         as part of settings — same pattern as goals/milestones. The panel
+         adopts whatever the overlay reports on the first hello (so reopening
+         the dock doesn't reset a custom set), then owns edits after that so
+         a live sync every 500ms can't clobber a row mid-edit. */
+      const DEFAULT_TALLY_DEFS = [
+        { key: "maps", label: "Maps" },
+        { key: "deaths", label: "Deaths" },
+        { key: "mirrors", label: "Mirrors" },
+      ];
+      let tallyDefs = DEFAULT_TALLY_DEFS.map((d) => Object.assign({}, d));
+      let tallyDefsSeeded = false;
+
+      function slugKey(s) {
+        return (
+          String(s || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "")
+            .slice(0, 24) || "tally"
+        );
+      }
+
+      function renderTallies() {
+        $("tallies").innerHTML = tallyDefs
+          .map(
+            (d, i) =>
+              '<div class="tallyItem">' +
+              '<div class="tallyEdit">' +
+              '<input type="text" class="lbl" data-i="' +
+              i +
+              '" value="' +
+              esc(d.label) +
+              '" placeholder="Label" />' +
+              '<input type="text" class="key" data-i="' +
+              i +
+              '" value="' +
+              esc(d.key) +
+              '" placeholder="command" />' +
+              '<button class="sm ghost rm" data-i="' +
+              i +
+              '" type="button" title="Remove">✕</button>' +
+              "</div>" +
+              '<div class="tally">' +
+              '<span class="val" id="tv-' +
+              esc(d.key) +
+              '">0</span>' +
+              '<button class="sm ghost" data-t="' +
+              esc(d.key) +
+              '" data-d="-1" type="button">−</button>' +
+              '<button class="sm" data-t="' +
+              esc(d.key) +
+              '" data-d="1" type="button">+</button>' +
+              '<input type="number" class="tset" data-t="' +
+              esc(d.key) +
+              '" placeholder="set…" style="width: 64px" />' +
+              '<button class="sm ghost" data-t="' +
+              esc(d.key) +
+              '" data-set="1" type="button">Set</button>' +
+              "</div></div>"
+          )
+          .join("");
+      }
+      renderTallies();
 
       function setTally(k) {
         const input = $("tallies").querySelector('.tset[data-t="' + k + '"]');
@@ -800,6 +875,14 @@
       $("tallies").addEventListener("click", (e) => {
         const b = e.target.closest("button");
         if (!b) return;
+        if (b.classList.contains("rm")) {
+          tallyDefs.splice(parseInt(b.dataset.i), 1);
+          if (!tallyDefs.length)
+            tallyDefs.push({ key: "tally", label: "Tally" });
+          renderTallies();
+          pushSettings();
+          return;
+        }
         const k = b.dataset.t;
         if (b.dataset.set) return setTally(k);
         sendAndConfirm(
@@ -811,6 +894,28 @@
       $("tallies").addEventListener("keydown", (e) => {
         if (e.key === "Enter" && e.target.classList.contains("tset"))
           setTally(e.target.dataset.t);
+        if (e.key === "Enter" && (e.target.classList.contains("lbl") || e.target.classList.contains("key")))
+          e.target.blur();
+      });
+      $("tallies").addEventListener("change", (e) => {
+        const i = parseInt(e.target.dataset.i);
+        if (isNaN(i) || !tallyDefs[i]) return;
+        if (e.target.classList.contains("lbl")) {
+          tallyDefs[i].label = e.target.value.trim().slice(0, 24) || "Tally";
+        } else if (e.target.classList.contains("key")) {
+          tallyDefs[i].key = slugKey(e.target.value);
+        } else return;
+        renderTallies();
+        pushSettings();
+      });
+
+      on("bAddTally", "click", () => {
+        tallyDefs.push({
+          key: "tally" + (tallyDefs.length + 1),
+          label: "New tally",
+        });
+        renderTallies();
+        pushSettings();
       });
 
       /* ── poll ── */
@@ -879,6 +984,7 @@
           milestoneFollows: parseInt($("mFollows").value) || 1300,
           milestoneSubs: parseInt($("mSubs").value) || 50,
           showMilestones,
+          tallyDefs,
         });
       }
       on("vol", "input", () => {
@@ -964,9 +1070,10 @@
         }
 
         if (live.tally)
-          TALLY_KEYS.forEach((k) => {
-            const el = $("tv-" + k);
-            if (el) el.textContent = live.tally[k] != null ? live.tally[k] : 0;
+          tallyDefs.forEach((d) => {
+            const el = $("tv-" + d.key);
+            if (el)
+              el.textContent = live.tally[d.key] != null ? live.tally[d.key] : 0;
           });
 
         const p = live.poll;
