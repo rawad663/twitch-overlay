@@ -66,10 +66,14 @@ Outside OBS, the overlay auto-demos unless you pass `?live=1`.
 | `!poll Question \| Yes \| No` | Open a 60s poll |
 | `!endpoll` | Close the poll |
 | `!say <text>` | Oracle banner |
-| `!testalert [kind]` | Fake alert (`follow`, `sub`, `raid`, `burst`, …) |
+| `!testalert [kind]` | Fake alert (`follow`, `welcome`, `sub`, `raid`, `burst`, …) |
 | `!brb [minutes]` | Start BRB |
 | `!afk` | Start AFK |
 | `!back` | End away |
+
+## New chatters
+
+The first time each login sends a chat message in a session, the overlay fires a low-priority "welcome" banner (`!testalert welcome` to preview). It's session-only — resets when the HUD source reloads — and needs no token, since it's driven by IRC chat, not follows.
 
 ## Follow alerts and milestones
 

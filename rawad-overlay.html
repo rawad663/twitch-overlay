@@ -1421,6 +1421,7 @@
       const oWho = document.getElementById("oWho");
       const oLine = document.getElementById("oLine");
       let fateLog = new Map();
+      let seenChatters = new Set(); // first-message-of-session welcome, resets on reload
 
       const pick = (a) => a[(Math.random() * a.length) | 0];
       // usernames come from chat — always escape before touching innerHTML
@@ -1555,6 +1556,7 @@
         bigcheer: { prio: 35, dur: 7000, sound: "cheer", tier: "cheer" },
         cheer: { prio: 20, dur: 5500, sound: null, tier: "cheer" },
         follow: { prio: 15, dur: 4500, sound: null },
+        welcome: { prio: 12, dur: 4200, sound: null },
         system: { prio: 10, dur: 9400, sound: null, tier: null },
       };
 
@@ -1733,6 +1735,12 @@
           "{n} bits from {u}. The moon actually flinched.",
           "{u} just lit the whole night up — {n} bits.",
         ],
+        welcome: [
+          "{u} steps out of the dark and says something.",
+          "{u} speaks. The moon leans in.",
+          "First words from {u}. Say hello back.",
+          "{u} joins the fire for the first time tonight.",
+        ],
       };
 
       const WHO = {
@@ -1745,6 +1753,7 @@
         raid: "A raid arrives —",
         cheer: "Bits in the dark —",
         bigcheer: "Tribute paid —",
+        welcome: "A new voice —",
       };
 
       // fill {u} {r} {n}, bolding the parts that matter
@@ -1767,6 +1776,11 @@
         }
         const evt = Director.push("follow", WHO.follow, phrase("follow", { u: user }));
         evt.names = [user];
+        return evt;
+      }
+
+      function alertWelcome(user) {
+        Director.push("welcome", WHO.welcome, phrase("welcome", { u: user }));
       }
 
       function alertSub(user, months) {
@@ -1953,6 +1967,10 @@
         ping();
         Scene.chat(m.login, m.user); // names only — never the message text
         if (m.bits) alertCheer(m.user, m.bits);
+        if (!seenChatters.has(m.login)) {
+          seenChatters.add(m.login);
+          if (m.login !== CONFIG.channel.toLowerCase()) alertWelcome(m.user);
+        }
         const msg = m.msg;
         if (!msg.startsWith("!")) return;
         const [cmd, ...rest] = msg.slice(1).split(/\s+/);
@@ -2007,6 +2025,8 @@
         switch ((kind || "").toLowerCase()) {
           case "follow":
             return alertFollow(u);
+          case "welcome":
+            return alertWelcome(u);
           case "resub":
             return alertSub(u, 14);
           case "gift":
