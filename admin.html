@@ -398,7 +398,8 @@
           This panel only reaches the overlay when opened as an OBS
           <strong>Custom Browser Dock</strong> — a normal browser tab is a
           different browser and shares no storage with OBS. For phone or remote
-          control, use the <code>!brb</code> / <code>!afk</code> chat commands.
+          control, use the <code>!brb</code> / <code>!afk</code> /
+          <code>!soon</code> chat commands.
         </div>
       </section>
 
@@ -409,6 +410,7 @@
         <div class="row2">
           <input type="number" id="brbMin" min="1" max="180" value="15" style="width: 78px" />
           <button class="sm" id="bBrb" type="button">Start BRB</button>
+          <button class="sm" id="bSoon" type="button">Starting soon</button>
           <button class="sm ghost" id="bReset" type="button">Reset</button>
         </div>
         <div class="row2" style="margin-top: 8px">
@@ -795,6 +797,13 @@
           "BRB"
         )
       );
+      on("bSoon", "click", () =>
+        sendAndConfirm(
+          "away.soon",
+          { minutes: parseInt($("brbMin").value) || 15 },
+          "Starting soon"
+        )
+      );
       on("bAfk", "click", () => sendAndConfirm("away.afk", {}, "AFK"));
       on("bBack", "click", () => sendAndConfirm("away.back", {}, "Back"));
       on("bReset", "click", () => sendAndConfirm("away.reset", {}, "Reset"));
@@ -1054,6 +1063,10 @@
           if (a.state === "brb") {
             const left = a.until - Date.now();
             label = left > 0 ? "BRB — time left" : "BRB — overrunning";
+            txt = left > 0 ? fmt(left) : "any moment now";
+          } else if (a.state === "soon") {
+            const left = a.until - Date.now();
+            label = left > 0 ? "Starting soon — time left" : "Starting soon — overrunning";
             txt = left > 0 ? fmt(left) : "any moment now";
           } else if (a.state === "afk") {
             label = "AFK — elapsed";

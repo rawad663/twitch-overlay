@@ -4,7 +4,7 @@ Vanilla HTML/CSS/JS Twitch overlay. No build, no packages, no tests. Two files. 
 
 ## Files
 
-- `rawad-overlay.html` — HUD (default) and AFK/BRB scene (`?mode=afk|brb|scene`). Twitch IRC, EventSub follows, Director, Scene canvas, Milestones, Bus.
+- `rawad-overlay.html` — HUD (default) and AFK/BRB/soon scene (`?mode=afk|brb|soon|scene`). Twitch IRC, EventSub follows, Director, Scene canvas, Milestones, Bus.
 - `admin.html` — OBS Custom Browser Dock. Same GitHub Pages origin as the overlay; only works as a dock, never as a Chrome tab.
 
 Hosted at `https://rawad663.github.io/twitch-overlay/`.
@@ -30,7 +30,7 @@ admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay 
 - **IRC** reconnects every 4s. Follows are the one event IRC will not send; without a token that block no-ops.
 - **Milestones** — HUD lifetime follower/sub totals vs dock targets (`milestoneFollows` / `milestoneSubs`). Helix `channels/followers` (any token) and `subscriptions` (`channel:read:subscriptions`). Scene source does not poll. Away-scene `goalFollows` / `goalSubs` / `goalMessages` stay session gains. Widget hides during banners/polls and when `showMilestones` is false.
 - **Director** — one serial banner queue. Priority: raid 50 > massgift 45 > sub/gift 40 > bigcheer 35 > cheer 20 > follow 15 > system 10. Over `queueCap`, lowest prio is dropped; sub/gift/raid are never shed if they are the lowest remaining.
-- **Scene** — canvas starfield. Pauses when OBS reports the source hidden (`obsstudio.onVisibilityChange`). Showing the source resets the timer. HUD lanes stay empty in scene mode (CSS hides `#rail`, `#strip`, `#goals`, `#poll`, `#oracle`, `#notice`).
+- **Scene** — canvas starfield. Pauses when OBS reports the source hidden (`obsstudio.onVisibilityChange`). Showing the source resets the timer. `soon` is a countdown like `brb` (hype copy, not "I'm gone"); `afk` is elapsed. HUD lanes stay empty in scene mode (CSS hides `#rail`, `#strip`, `#goals`, `#poll`, `#oracle`, `#notice`).
 - **Demo** — `!window.obsstudio && ?live !== 1`, or `?demo=1`. Fake traffic; no IRC.
 
 ### localStorage (`rawad-*`)
@@ -45,7 +45,7 @@ admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay 
 
 ### Bus types
 
-Panel → sources: `away.brb|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `ping`.
+Panel → sources: `away.brb|soon|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `ping`.
 
 Sources → panel: `hello` (status heartbeat, plus HUD-only `totals` and public `clientId`), `ack` `{ forId, forType, role }`.
 

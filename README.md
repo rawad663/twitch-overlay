@@ -6,7 +6,7 @@ PoE-flavored Twitch overlay for [rawad663](https://twitch.tv/rawad663). Two stat
 
 | File | Role |
 |------|------|
-| [`rawad-overlay.html`](rawad-overlay.html) | 1920×1080 overlay. Default is the HUD; `?mode=afk` / `?mode=brb` is the full-screen away scene. |
+| [`rawad-overlay.html`](rawad-overlay.html) | 1920×1080 overlay. Default is the HUD; `?mode=afk` / `?mode=brb` / `?mode=soon` is the full-screen away scene. |
 | [`admin.html`](admin.html) | Control panel. Same Pages origin as the overlay, but it only talks to sources when OBS opens it as a **Custom Browser Dock**. |
 
 ## OBS setup
@@ -21,7 +21,7 @@ All URLs are from `https://rawad663.github.io/twitch-overlay/`.
    ```
    https://rawad663.github.io/twitch-overlay/rawad-overlay.html?mode=brb
    ```
-   Use `?mode=afk` if you want elapsed time instead of a countdown.
+   Use `?mode=afk` if you want elapsed time instead of a countdown, or `?mode=soon` for a starting-soon countdown. The dock’s **Starting soon** / **Start BRB** / **AFK** buttons switch the same source without changing the URL.
 3. **Control dock** — View → Docks → Custom Browser Docks…
    ```
    https://rawad663.github.io/twitch-overlay/admin.html
@@ -30,14 +30,14 @@ All URLs are from `https://rawad663.github.io/twitch-overlay/`.
 
 After a bus/code change, right-click each browser source → **Refresh cache of current page**. The dock’s Diagnostics section tells you whether storage is shared and whether sources are answering.
 
-For phone or remote control, use the `!brb` / `!afk` / `!back` chat commands instead of the dock.
+For phone or remote control, use the `!brb` / `!soon` / `!afk` / `!back` chat commands instead of the dock.
 
 ## URL params (`rawad-overlay.html`)
 
 | Param | Effect |
 |-------|--------|
-| `mode=afk` / `brb` / `scene` | Full-screen away scene instead of HUD |
-| `min=15` | BRB countdown minutes (with `mode=brb`) |
+| `mode=afk` / `brb` / `soon` / `scene` | Full-screen away scene instead of HUD |
+| `min=15` | Countdown minutes (with `mode=brb` or `mode=soon`) |
 | `live=1` | Connect to Twitch even outside OBS (skips demo traffic) |
 | `demo=1` | Force fake chat/alerts |
 | `guide=1` | Draw PoE safe-zone boxes |
@@ -68,6 +68,7 @@ Outside OBS, the overlay auto-demos unless you pass `?live=1`.
 | `!say <text>` | Oracle banner |
 | `!testalert [kind]` | Fake alert (`follow`, `welcome`, `sub`, `raid`, `burst`, …) |
 | `!brb [minutes]` | Start BRB |
+| `!soon [minutes]` | Start “starting soon” |
 | `!afk` | Start AFK |
 | `!back` | End away |
 

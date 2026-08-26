@@ -1105,10 +1105,11 @@
       const DEMO = qs.get("demo") === "1" || (!inOBS && qs.get("live") !== "1");
       if (DEMO) document.body.classList.add("bg");
 
-      /* Scene mode turns this same file into the full-screen AFK/BRB view for a
-         second OBS source. No ?mode= at all leaves the HUD exactly as it was. */
+      /* Scene mode turns this same file into the full-screen AFK/BRB/soon view
+         for a second OBS source. No ?mode= at all leaves the HUD as it was. */
       const MODE = (qs.get("mode") || "").toLowerCase();
-      const SCENE = MODE === "afk" || MODE === "brb" || MODE === "scene";
+      const SCENE =
+        MODE === "afk" || MODE === "brb" || MODE === "soon" || MODE === "scene";
       if (SCENE) document.body.classList.add("scene");
 
       /* ═══════════════════ CONTROL BUS ═══════════════════
@@ -2068,6 +2069,7 @@
         if (c === "testalert") return testAlert(rest[0] || "sub", m.user);
         // away controls — the OBS toggle shows the scene, these set what it says
         if (c === "brb") return Scene.brb(rest[0]);
+        if (c === "soon") return Scene.soon(rest[0]);
         if (c === "afk") return Scene.afk();
         if (c === "back") return Scene.back();
       }
@@ -2474,10 +2476,25 @@
         "<b>!fate</b> works even while I'm gone",
         "The constellation is built from <b>whoever's talking</b>",
       ];
+      const SOON_PROMPTS = [
+        "Type <b>!fate</b> — the moon answers before we even start",
+        "Every chatter becomes a <b>star</b> up there",
+        "Follow now and your name is already in the <b>sky</b>",
+        "Talk — the moon is listening <b>right now</b>",
+        "Light it up before we <b>drop</b>",
+        "The constellation is built from <b>whoever's talking</b>",
+      ];
 
       const Scene = {
         on: SCENE,
-        state: MODE === "afk" ? "afk" : MODE === "brb" ? "brb" : "idle",
+        state:
+          MODE === "afk"
+            ? "afk"
+            : MODE === "brb"
+              ? "brb"
+              : MODE === "soon"
+                ? "soon"
+                : "idle",
         until: 0,
         since: Date.now(),
         follows: 0,
@@ -2596,6 +2613,14 @@
           this.reset();
           this.share();
         },
+        soon(minutes) {
+          const m = Math.max(1, Math.min(180, parseInt(minutes) || CONFIG.brbMinutes));
+          this.state = "soon";
+          this.since = Date.now();
+          this.until = Date.now() + m * 60000;
+          this.reset();
+          this.share();
+        },
         afk() {
           this.state = "afk";
           this.since = Date.now();
@@ -2651,6 +2676,7 @@
             // the OBS toggle *is* the reset — showing the source always starts
             // a fresh timer, so hide/show is a one-click reset from OBS alone
             if (MODE === "brb") this.brb(qs.get("min"));
+            else if (MODE === "soon") this.soon(qs.get("min"));
             else if (MODE === "afk") this.afk();
             this.paused = false;
             this.start();
@@ -2701,15 +2727,19 @@
             });
 
           if (MODE === "brb") this.brb(qs.get("min"));
+          else if (MODE === "soon") this.soon(qs.get("min"));
           else if (MODE === "afk") this.afk();
 
+          const prompts = () =>
+            this.state === "soon" ? SOON_PROMPTS : AWAY_PROMPTS;
           let pi = 0;
-          this.promptEl.innerHTML = AWAY_PROMPTS[0];
+          this.promptEl.innerHTML = prompts()[0];
           setInterval(() => {
             this.promptEl.classList.add("out");
             setTimeout(() => {
-              pi = (pi + 1) % AWAY_PROMPTS.length;
-              this.promptEl.innerHTML = AWAY_PROMPTS[pi];
+              const list = prompts();
+              pi = (pi + 1) % list.length;
+              this.promptEl.innerHTML = list[pi];
               this.promptEl.classList.remove("out");
             }, 500);
           }, 9000);
@@ -2827,8 +2857,8 @@
         // chat-energy ring
         this.ring(g, cx, cy, r + 30, p, this.moonFull ? "#E8A33D" : "#A97BFF", 4);
 
-        // countdown ring, brb only
-        if (this.state === "brb" && this.until) {
+        // countdown ring — timed away states only (brb / starting soon)
+        if ((this.state === "brb" || this.state === "soon") && this.until) {
           const total = this.until - this.since;
           const left = Math.max(0, this.until - now);
           this.ring(g, cx, cy, r + 52, total ? left / total : 0, "#E8A33D", 3);
@@ -2981,6 +3011,19 @@
             this.set(this.timerEl, "className", "over");
             S(this.subEl, "Keep the sky busy a little longer");
           }
+        } else if (this.state === "soon") {
+          const left = this.until - now;
+          S(this.kickerEl, "The sky is waking");
+          S(this.titleEl, "Starting soon");
+          if (left > 0) {
+            S(this.timerEl, fmt(left));
+            this.set(this.timerEl, "className", "num");
+            S(this.subEl, "Talk, !fate, follow — light the moon before we drop");
+          } else {
+            S(this.timerEl, "any moment now…");
+            this.set(this.timerEl, "className", "over");
+            S(this.subEl, "Keep the sky loud — we're close");
+          }
         } else if (this.state === "afk") {
           S(this.kickerEl, "Away — the moon keeps watch");
           S(this.titleEl, "AFK");
@@ -3092,11 +3135,14 @@
          reaches both too, so the HUD banner and the scene's shooting star stay
          in step. Handlers that don't apply to a mode no-op harmlessly. */
       Bus.on("away.brb", (p) => Scene.brb(p.minutes));
+      Bus.on("away.soon", (p) => Scene.soon(p.minutes));
       Bus.on("away.afk", () => Scene.afk());
       Bus.on("away.back", () => Scene.back());
       Bus.on("away.reset", () => {
+        const mins = Math.round((Scene.until - Scene.since) / 60000);
         if (Scene.state === "afk") Scene.afk();
-        else Scene.brb(Math.round((Scene.until - Scene.since) / 60000));
+        else if (Scene.state === "soon") Scene.soon(mins);
+        else Scene.brb(mins);
       });
 
       Bus.on("tally.bump", (p) => {
