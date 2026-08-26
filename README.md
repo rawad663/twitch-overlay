@@ -6,7 +6,7 @@ PoE-flavored Twitch overlay for [rawad663](https://twitch.tv/rawad663). Two stat
 
 | File | Role |
 |------|------|
-| [`rawad-overlay.html`](rawad-overlay.html) | 1920×1080 overlay. Default is the HUD; `?mode=afk` / `?mode=brb` / `?mode=soon` is the full-screen away scene. |
+| [`rawad-overlay.html`](rawad-overlay.html) | 1920×1080 overlay. Default is the HUD; `?mode=afk` / `?mode=brb` / `?mode=soon` is the full-screen away scene; `?mode=chill` is the camera-on chill scene. |
 | [`admin.html`](admin.html) | Control panel. Same Pages origin as the overlay, but it only talks to sources when OBS opens it as a **Custom Browser Dock**. |
 
 ## OBS setup
@@ -22,7 +22,12 @@ All URLs are from `https://rawad663.github.io/twitch-overlay/`.
    https://rawad663.github.io/twitch-overlay/rawad-overlay.html?mode=brb
    ```
    Use `?mode=afk` if you want elapsed time instead of a countdown, or `?mode=soon` for a starting-soon countdown. The dock’s **Starting soon** / **Start BRB** / **AFK** buttons switch the same source without changing the URL.
-3. **Control dock** — View → Docks → Custom Browser Docks…
+3. **Chill scene** — its own scene, Browser Source at 1920×1080, **transparent**, with your camera source placed *behind* it. Do not layer the HUD on top.
+   ```
+   https://rawad663.github.io/twitch-overlay/rawad-overlay.html?mode=chill
+   ```
+   The browser source punches a transparent hole for the camera at **x80–700, y240–1000**. Add `&guide=1` once to draw that box and size the camera source to it. See [Chill scene](#chill-scene).
+4. **Control dock** — View → Docks → Custom Browser Docks…
    ```
    https://rawad663.github.io/twitch-overlay/admin.html
    ```
@@ -37,6 +42,7 @@ For phone or remote control, use the `!brb` / `!soon` / `!afk` / `!back` chat co
 | Param | Effect |
 |-------|--------|
 | `mode=afk` / `brb` / `soon` / `scene` | Full-screen away scene instead of HUD |
+| `mode=chill` | Camera-on chill scene (no countdown, chat effects, vibe layer) |
 | `min=15` | Countdown minutes (with `mode=brb` or `mode=soon`) |
 | `live=1` | Connect to Twitch even outside OBS (skips demo traffic) |
 | `demo=1` | Force fake chat/alerts |
@@ -55,6 +61,9 @@ Outside OBS, the overlay auto-demos unless you pass `?live=1`.
 |---------|--------|
 | `!fate` | Oracle roll (per-viewer cooldown) |
 | `!1` / `!2` | Vote in an open poll |
+| `!wave` | **Chill scene only** — comet across the sky with your name (45s) |
+| `!heart` | **Chill scene only** — bloom your own star (45s) |
+| `!moon` | **Chill scene only** — nudge the chat-energy ring (180s) |
 
 **Mod / broadcaster**
 
@@ -75,6 +84,29 @@ Outside OBS, the overlay auto-demos unless you pass `?live=1`.
 ## Tallies
 
 The HUD's tally strip (default: Maps / Deaths / Mirrors) is fully editable from the admin dock's **Tallies** section — rename the label, rename the chat command, remove a tally, or add new ones with **+ Add tally**. Each tally's command word doubles as its storage key (`maps` → `!map`/`!maps` both bump it); typing a new command auto-slugs it to lowercase letters/digits. Changes push live to every open source and persist like the other settings.
+
+## Chill scene
+
+`?mode=chill` is the camera-on "just chatting" scene. It keeps the away scene's starfield — every chatter becomes a named star, follows and subs fly comets — and drops the countdown, because you aren't going anywhere.
+
+**Layout.** The browser source owns the whole 1920×1080 stage and clears a transparent hole for the camera behind it:
+
+| Block | Rect |
+|---|---|
+| Camera frame | `x80–700  y240–1000` |
+| Moon | `cx1420 cy360 r190` |
+| Alert banner | `x860–1560 y690–850` |
+| Command guide / prompt | `x760–1860 y856–1030` |
+
+`?mode=chill&guide=1` draws those boxes — use it once to size the camera source, then drop the param. Move the frame by editing `CONFIG.camera`; the keep-out zone follows it automatically.
+
+Unlike the away scene, **the HUD is not layered on top** — so the alert banner renders here instead, moved right to clear the camera. Away commands (`!brb`, `!afk`, the dock's away buttons) deliberately no-op on a chill source; it's a separate OBS scene you switch to.
+
+**Chat effects.** `!wave`, `!heart` and `!moon` are open to everyone, not just mods. `!moon`'s nudge always stops one short of a full moon, so chat still has to actually talk to land it.
+
+**Vibe layer.** The background palette and motion drift with chat: message rate drives intensity, and a small keyword dictionary nudges the mood between calm / cozy / funny / hype. Words are counted and discarded — no chat text is ever drawn, so there's nothing to moderate. Every mood stays inside the violet→rune ramp; `--ember` remains reserved for gains.
+
+**Command guide.** The full command list leads for the first 15s (`CONFIG.guideSeconds`), then collapses to a rotating line that alternates flavour with literal command reveals. Hiding and re-showing the source in OBS replays the intro.
 
 ## New chatters
 

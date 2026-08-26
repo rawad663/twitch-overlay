@@ -4,7 +4,7 @@ Vanilla HTML/CSS/JS Twitch overlay. No build, no packages, no tests. Two files. 
 
 ## Files
 
-- `rawad-overlay.html` — HUD (default) and AFK/BRB/soon scene (`?mode=afk|brb|soon|scene`). Twitch IRC, EventSub follows, Director, Scene canvas, Milestones, Bus.
+- `rawad-overlay.html` — HUD (default), AFK/BRB/soon scene (`?mode=afk|brb|soon|scene`) and the camera-on chill scene (`?mode=chill`). Twitch IRC, EventSub follows, Director, Scene canvas, Vibe, Milestones, Bus.
 - `admin.html` — OBS Custom Browser Dock. Same GitHub Pages origin as the overlay; only works as a dock, never as a Chrome tab.
 
 Hosted at `https://rawad663.github.io/twitch-overlay/`.
@@ -31,6 +31,8 @@ admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay 
 - **Milestones** — HUD lifetime follower/sub totals vs dock targets (`milestoneFollows` / `milestoneSubs`). Helix `channels/followers` (any token) and `subscriptions` (`channel:read:subscriptions`). Scene source does not poll. Away-scene `goalFollows` / `goalSubs` / `goalMessages` stay session gains. Widget hides during banners/polls and when `showMilestones` is false.
 - **Director** — one serial banner queue. Priority: raid 50 > massgift 45 > sub/gift 40 > bigcheer 35 > cheer 20 > follow 15 > system 10. Over `queueCap`, lowest prio is dropped; sub/gift/raid are never shed if they are the lowest remaining.
 - **Scene** — canvas starfield. Pauses when OBS reports the source hidden (`obsstudio.onVisibilityChange`). Showing the source resets the timer. `soon` is a countdown like `brb` (hype copy, not "I'm gone"); `afk` is elapsed. HUD lanes stay empty in scene mode (CSS hides `#rail`, `#strip`, `#goals`, `#poll`, `#oracle`, `#notice`).
+- **Chill** (`?mode=chill`) — a `SCENE`, so it inherits the no-Helix/no-milestones/`role: "scene"` gates for free. Differences: no HUD is layered, so `#oracle` comes *back* (repositioned right) and `body` goes transparent — the canvas paints the backdrop and clears a hole for the camera source behind it. `Scene.state` is `"chill"`, `tick()` early-returns, and `brb/soon/afk/back` no-op so an away command can't half-render a countdown over the camera. `!wave`/`!heart`/`!moon` sit **above** the `!m.mod` gate in `handle()` — they're for chat, not mods.
+- **Vibe** — chill-only ambience. Intensity off the existing `beats` array; mood from a keyword tally (`calm|cozy|funny|hype`) that decays on a 2s timer and eases per frame. Counts words and discards them — never renders chat text. Moods separate on depth/motion/twinkle inside the violet→rune ramp; **none may use ember**.
 - **Demo** — `!window.obsstudio && ?live !== 1`, or `?demo=1`. Fake traffic; no IRC.
 
 ### localStorage (`rawad-*`)
@@ -63,7 +65,14 @@ Tokens in `:root`: `--violet #7A2FF2`, `--deep #3D0F8A`, `--rune #A97BFF`, `--cr
 - notice `x26–200 y96–112`
 - banner `x470–1030 y620–822`
 
-`?guide=1` draws those boxes.
+Chill has no HUD over it, so it uses its own keep-out set instead (`CONFIG.camera` drives the first):
+
+- camera `x80–700 y240–1000`
+- banner `x860–1560 y690–850`
+- guide · prompt `x760–1860 y856–1030`
+- moon `cx1420 cy360 r190` — the "chat energy" caption lands at `y642`, which is what pins the banner to `y700`
+
+`?guide=1` draws those boxes (`?mode=chill&guide=1` for the chill set).
 
 ## Conventions
 

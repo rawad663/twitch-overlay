@@ -637,6 +637,17 @@
       body.guide .zone {
         display: block;
       }
+      /* chill has its own keep-out boxes — the PoE lanes don't apply there,
+         and body.scene hides the normal ones with !important */
+      body.guide .zone.chillzone {
+        display: none;
+      }
+      /* the zone divs sit before #scene in the DOM, so without a z-index the
+         starfield canvas paints straight over them */
+      body.chill.guide .zone.chillzone {
+        display: block !important;
+        z-index: 5;
+      }
       /* ═══════════════════ AFK / BRB SCENE ═══════════════════
          A second OBS source loads this same file with ?mode=. The HUD source
          stays layered on top, so everything here keeps clear of its lanes:
@@ -811,6 +822,114 @@
         transform: translateY(-8px);
       }
 
+      /* ═══════════════════ CHILL SCENE ═══════════════════
+         Camera-on "just chatting" mode. The HUD source is NOT layered during
+         a chill session, so this owns the whole stage and the alert banner
+         comes back — the HUD isn't there to show it.
+           camera x80–700   y240–1000     moon   cx1420 cy360 r190
+           banner x860–1560 y660–870      guide  x760–1860 y900–1030      */
+
+      /* The canvas paints the whole backdrop in chill and then clears a hole
+         for the camera behind it — an opaque body would fill that hole back
+         in with #06040d and the webcam would never show through. */
+      body.scene.chill {
+        background: transparent;
+      }
+
+      /* the countdown and away-session goals are away-scene ideas */
+      body.chill #scStatus,
+      body.chill #scGoals {
+        display: none !important;
+      }
+
+      /* Banner moves right, clear of the camera frame. y700 is boxed in: the
+         moon's "chat energy" caption lands at y642 and the command guide
+         starts at y856, so this sits in the gap between them. */
+      body.scene.chill #oracle {
+        display: block !important;
+        left: 860px;
+        top: 700px;
+        width: 700px;
+      }
+      body.scene.chill #oracle.lowered {
+        top: 700px; /* no poll lane in chill — nothing to duck under */
+      }
+
+      body.chill #scPrompt {
+        left: 760px;
+        top: 936px;
+        width: 1100px;
+        transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      /* held down while the full command list is up, so the two never stack */
+      body.chill #scPrompt.hushed {
+        opacity: 0;
+      }
+
+      /* ── command guide: shown on scene entry, then collapses to the line ── */
+      #scGuide {
+        position: absolute;
+        left: 760px;
+        top: 856px;
+        width: 1100px;
+        text-align: right;
+        display: none;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+          transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      body.chill #scGuide {
+        display: block;
+      }
+      #scGuide.on {
+        opacity: 1;
+        transform: none;
+      }
+      #scGuideLabel {
+        font-size: 11px;
+        letter-spacing: 0.36em;
+        text-transform: uppercase;
+        color: rgba(243, 238, 228, 0.38);
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+      #scGuideList {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+      }
+      #scGuideList .cmd {
+        flex: 0 0 auto;
+        min-width: 172px;
+        padding: 12px 16px 13px;
+        text-align: left;
+        background: linear-gradient(
+          180deg,
+          rgba(61, 15, 138, 0.5),
+          rgba(20, 6, 48, 0.62)
+        );
+        border: 1px solid rgba(169, 123, 255, 0.28);
+        border-radius: 3px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      }
+      #scGuideList .cmd .c {
+        display: block;
+        font-size: 25px;
+        font-weight: 700;
+        color: var(--rune);
+        letter-spacing: 0.02em;
+        line-height: 1.1;
+      }
+      #scGuideList .cmd .d {
+        display: block;
+        margin-top: 5px;
+        font-size: 14px;
+        color: rgba(243, 238, 228, 0.62);
+        letter-spacing: 0.04em;
+        line-height: 1.3;
+      }
+
       /* ─────────────────── OAUTH HELPER (one-off, not part of the stream) ─────────────────── */
       #oauthHelper {
         position: fixed;
@@ -926,6 +1045,26 @@
         flasks · skills · orbs
       </div>
 
+      <!-- chill keep-out zones (?mode=chill&guide=1) — align the camera here -->
+      <div
+        class="zone chillzone"
+        style="left: 80px; top: 240px; width: 620px; height: 760px"
+      >
+        camera
+      </div>
+      <div
+        class="zone chillzone"
+        style="left: 860px; top: 690px; width: 700px; height: 160px"
+      >
+        alert banner
+      </div>
+      <div
+        class="zone chillzone"
+        style="left: 760px; top: 856px; width: 1100px; height: 174px"
+      >
+        guide · prompt
+      </div>
+
       <!-- ══ LEFT RAIL ══ -->
       <div id="rail">
         <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
@@ -1038,6 +1177,12 @@
             <div id="scPromptLabel">While you wait</div>
             <div id="scPromptText">—</div>
           </div>
+
+          <!-- chill only: full command list on entry, then it collapses -->
+          <div id="scGuide">
+            <div id="scGuideLabel">Chat commands</div>
+            <div id="scGuideList"></div>
+          </div>
         </div>
       </div>
 
@@ -1081,6 +1226,13 @@
         goalSubs: 3,
         goalMessages: 100,
 
+        // ── chill scene (?mode=chill) ──
+        camera: [80, 240, 700, 1000], // frame the OBS camera source sits behind
+        waveCooldown: 45, // seconds per viewer for !wave and !heart
+        moonCooldown: 180, // !moon pushes a shared meter, so it costs more
+        moonNudge: 3, // messages-worth of energy one !moon is worth
+        guideSeconds: 15, // how long the full command list stays up on entry
+
         // ── HUD lifetime milestones (not the away-scene counters) ──
         milestoneFollows: 1300,
         milestoneSubs: 50,
@@ -1108,9 +1260,18 @@
       /* Scene mode turns this same file into the full-screen AFK/BRB/soon view
          for a second OBS source. No ?mode= at all leaves the HUD as it was. */
       const MODE = (qs.get("mode") || "").toLowerCase();
+      /* chill is a scene like the rest — that inheritance is load-bearing:
+         it silences the Helix polling, hides the milestone widget and reports
+         role "scene" on the bus without a single extra branch. */
+      const CHILL = MODE === "chill";
       const SCENE =
-        MODE === "afk" || MODE === "brb" || MODE === "soon" || MODE === "scene";
+        MODE === "afk" ||
+        MODE === "brb" ||
+        MODE === "soon" ||
+        MODE === "scene" ||
+        CHILL;
       if (SCENE) document.body.classList.add("scene");
+      if (CHILL) document.body.classList.add("chill");
 
       /* ═══════════════════ CONTROL BUS ═══════════════════
          Links this source to admin.html. Same-origin only, which in practice
@@ -1412,6 +1573,10 @@
       const oWho = document.getElementById("oWho");
       const oLine = document.getElementById("oLine");
       let fateLog = new Map();
+      // one cooldown ledger per chill command, keyed by login
+      const waveLog = new Map(),
+        heartLog = new Map(),
+        moonLog = new Map();
       let seenChatters = new Set(); // first-message-of-session welcome, resets on reload
 
       const pick = (a) => a[(Math.random() * a.length) | 0];
@@ -1659,10 +1824,17 @@
         return true;
       }
 
-      function fate(user) {
+      /* per-viewer rate limit — one log per command, so a !wave never eats
+         someone's !fate. Returns false when the caller is still on cooldown. */
+      function cooldown(log, user, seconds) {
         const now = Date.now();
-        if (now - (fateLog.get(user) || 0) < CONFIG.fateCooldown * 1000) return;
-        fateLog.set(user, now);
+        if (now - (log.get(user) || 0) < seconds * 1000) return false;
+        log.set(user, now);
+        return true;
+      }
+
+      function fate(user) {
+        if (!cooldown(fateLog, user, CONFIG.fateCooldown)) return;
         Director.push(
           "system",
           user + " asked the moon —",
@@ -2021,6 +2193,7 @@
         if (m.kind === "notice") return notice(m);
         ping();
         Scene.chat(m.login, m.user); // names only — never the message text
+        Vibe.note(m.msg); // counts mood words and discards them, draws nothing
         if (m.bits) alertCheer(m.user, m.bits);
         if (!seenChatters.has(m.login)) {
           seenChatters.add(m.login);
@@ -2033,6 +2206,33 @@
         const c = cmd.toLowerCase();
 
         if (c === "fate") return fate(m.user);
+
+        /* ── chill-scene effects ──
+           Deliberately above the mod gate: these are for chat, not for mods.
+           Scene.chat() has already run for this message, so the sender's star
+           exists by the time !heart looks for it. */
+        if (CHILL) {
+          if (c === "wave") {
+            if (cooldown(waveLog, m.login, CONFIG.waveCooldown))
+              Scene.wave(m.user);
+            return;
+          }
+          if (c === "heart") {
+            if (cooldown(heartLog, m.login, CONFIG.waveCooldown))
+              Scene.bloom(m.login);
+            return;
+          }
+          if (c === "moon") {
+            if (cooldown(moonLog, m.login, CONFIG.moonCooldown)) {
+              // a nudge can lift a quiet room but never finish the job — it
+              // always stops one short, so real chat has to land the full moon
+              const room = CONFIG.fullMoonMessages - beats.length - 1;
+              const n = Math.min(CONFIG.moonNudge, Math.max(0, room));
+              for (let i = 0; i < n; i++) ping();
+            }
+            return;
+          }
+        }
 
         if (poll && (c === "1" || c === "2") && !poll.voters.has(m.login)) {
           poll.voters.add(m.login);
@@ -2095,6 +2295,18 @@
             return alertCheer(u, 250);
           case "bigcheer":
             return alertCheer(u, 5000);
+          case "wave":
+            return Scene.wave(u);
+          case "heart": {
+            // only a display name is passed in here, and stars are keyed by
+            // login — bloom the most recent voice instead of guessing
+            const last = Scene.recent[0];
+            return last ? Scene.bloom(last) : undefined;
+          }
+          case "moon": {
+            for (let i = 0; i < CONFIG.moonNudge; i++) ping();
+            return;
+          }
           case "burst":
             alertFollow("first_soul");
             alertCheer("bit_thrower", 300);
@@ -2464,6 +2676,150 @@
         },
       };
 
+      /* ═══════════════════ VIBE (chill ambience) ═══════════════════
+         The chill scene has no countdown and no game to react to, so the
+         background has to carry the room. Two inputs, both already paid for:
+
+           energy — how fast chat is moving, read straight off the `beats`
+                    array the moon already maintains
+           mood   — a decaying keyword tally over recent messages
+
+         Words are counted and discarded, never drawn. Nothing a viewer types
+         reaches the screen, so this adds no moderation surface.
+
+         Every mood stays inside the violet→rune ramp. --ember is reserved for
+         gains (see CLAUDE.md), so a mood can never borrow it — the moods
+         separate on depth, motion and twinkle instead of hue. `calm` is a
+         byte-for-byte match of the away scene's existing backdrop, so an
+         idle chill scene looks exactly like the sky always has. */
+      const VIBES = {
+        calm: {
+          top: [26, 16, 48],
+          mid: [11, 7, 24],
+          glow: [122, 47, 242],
+          drift: 0.75,
+          twinkle: 0.85,
+        },
+        cozy: {
+          top: [42, 20, 62],
+          mid: [16, 9, 30],
+          glow: [138, 74, 224],
+          drift: 0.95,
+          twinkle: 1.0,
+        },
+        funny: {
+          top: [52, 28, 84],
+          mid: [18, 10, 36],
+          glow: [169, 123, 255],
+          drift: 1.2,
+          twinkle: 1.75,
+        },
+        hype: {
+          top: [62, 26, 112],
+          mid: [20, 8, 44],
+          glow: [169, 123, 255],
+          drift: 1.7,
+          twinkle: 1.3,
+        },
+      };
+
+      /* calm carries no words on purpose — it's the floor everything decays
+         back down to, not something chat has to ask for. */
+      const VIBE_WORDS = {
+        hype: "pog poggers pogchamp letsgo lesgo hype insane sheesh clutch gg ez fire goat huge yooo noway wow omg cracked w",
+        funny: "lol lmao lmfao kekw omegalul lul haha hahaha ahaha xd dead crying icant deceased",
+        cozy: "chill cozy comfy vibe vibes vibing relax calm nice cute love wholesome gm gn hi hello hey heya sleepy tea coffee",
+      };
+
+      // flat token -> mood, built once
+      const VIBE_LOOKUP = {};
+      Object.keys(VIBE_WORDS).forEach((mood) =>
+        VIBE_WORDS[mood].split(" ").forEach((w) => (VIBE_LOOKUP[w] = mood))
+      );
+
+      const Vibe = {
+        scores: { cozy: 0, funny: 0, hype: 0 },
+        mood: "calm",
+        cur: null, // eased colour state, seeded on first frame
+        energy: 0,
+
+        /* one message in. Counts at most one hit per message so a wall of
+           "LOL LOL LOL" from one person doesn't outweigh the room. */
+        note(msg) {
+          if (!CHILL) return;
+          const seen = {};
+          String(msg)
+            .toLowerCase()
+            .split(/[^a-z]+/)
+            .forEach((w) => {
+              const mood = w && VIBE_LOOKUP[w];
+              if (mood) seen[mood] = 1;
+            });
+          Object.keys(seen).forEach((m) => (this.scores[m] += 1));
+        },
+
+        // time-based, so the mood fades on its own during a lull
+        decay() {
+          let best = null,
+            bestVal = 0.9; // a mood has to clear the floor to take over
+          Object.keys(this.scores).forEach((m) => {
+            this.scores[m] *= 0.72;
+            if (this.scores[m] > bestVal) {
+              bestVal = this.scores[m];
+              best = m;
+            }
+          });
+          this.mood = best || "calm";
+        },
+
+        target() {
+          return VIBES[this.mood] || VIBES.calm;
+        },
+
+        /* eased every frame so the room drifts between moods instead of
+           cutting between them — a hard swap reads as a bug on stream. */
+        step() {
+          const t = this.target();
+          if (!this.cur) {
+            this.cur = {
+              top: t.top.slice(),
+              mid: t.mid.slice(),
+              glow: t.glow.slice(),
+              drift: t.drift,
+              twinkle: t.twinkle,
+            };
+          }
+          const k = 0.018;
+          const ease = (a, b) => a + (b - a) * k;
+          ["top", "mid", "glow"].forEach((key) => {
+            for (let i = 0; i < 3; i++)
+              this.cur[key][i] = ease(this.cur[key][i], t[key][i]);
+          });
+          this.cur.drift = ease(this.cur.drift, t.drift);
+          this.cur.twinkle = ease(this.cur.twinkle, t.twinkle);
+
+          const live = beats.filter((b) => Date.now() - b < 60000).length;
+          this.energy = Math.min(1, live / CONFIG.fullMoonMessages);
+          return this.cur;
+        },
+
+        rgb(key, alpha) {
+          const c = this.cur ? this.cur[key] : VIBES.calm[key];
+          return (
+            "rgba(" +
+            (c[0] | 0) +
+            "," +
+            (c[1] | 0) +
+            "," +
+            (c[2] | 0) +
+            "," +
+            alpha +
+            ")"
+          );
+        },
+      };
+      if (CHILL) setInterval(() => Vibe.decay(), 2000);
+
       /* ═══════════════════ AFK / BRB SCENE ═══════════════════
          Runs in a second OBS browser source (?mode=afk / ?mode=brb) layered
          under the HUD. Everything is drawn on one canvas; the loop pauses when
@@ -2484,11 +2840,30 @@
         "Light it up before we <b>drop</b>",
         "The constellation is built from <b>whoever's talking</b>",
       ];
+      /* chill alternates flavour with literal command reveals — a viewer who
+         only ever glances at the screen once should still catch a command. */
+      const CHILL_PROMPTS = [
+        "Type <b>!wave</b> — send a comet across the sky",
+        "Every chatter becomes a <b>star</b> up there",
+        "Type <b>!heart</b> — find your own star and bloom it",
+        "The sky shifts with <b>how chat feels</b>",
+        "Type <b>!moon</b> — help raise it",
+        "Keep talking and the <b>moon rises</b>",
+        "Type <b>!fate</b> — the moon still answers",
+        "The constellation is built from <b>whoever's talking</b>",
+      ];
+      const CHILL_COMMANDS = [
+        { c: "!wave", d: "Send a comet across the sky" },
+        { c: "!heart", d: "Bloom your own star" },
+        { c: "!moon", d: "Help raise the moon" },
+        { c: "!fate", d: "Ask the moon a question" },
+      ];
 
       const Scene = {
         on: SCENE,
-        state:
-          MODE === "afk"
+        state: CHILL
+          ? "chill"
+          : MODE === "afk"
             ? "afk"
             : MODE === "brb"
               ? "brb"
@@ -2503,31 +2878,43 @@
         stars: new Map(),
         recent: [],
         shots: [],
+        blooms: [],
         dust: [],
         raf: null,
         paused: false,
         moonFull: false,
 
-        /* ── geometry: the HUD owns these, so nothing of ours may land in them ── */
-        blocked: [
-          [520, 16, 1040, 92], // top strip + quiet hint
-          [520, 96, 1040, 154], // lifetime milestones
-          [26, 132, 82, 812], // left rail
-          [26, 96, 200, 112], // token notice
-          [470, 620, 1030, 822], // poll + alert banner
-          [150, 240, 1010, 560], // our own status block
-          [150, 860, 650, 1030], // our own goal bars
-          [1140, 880, 1810, 1010], // our own prompt
-        ],
-        moonX: 1360,
-        moonY: 400,
-        moonR: 200,
+        /* ── geometry ──
+           Away modes: the HUD source is layered on top, so nothing of ours may
+           land in its lanes. Chill: no HUD is layered, so the only keep-outs
+           are the camera frame and our own text blocks. */
+        blocked: CHILL
+          ? [
+              CONFIG.camera, // camera frame
+              [860, 690, 1560, 850], // alert banner
+              [760, 856, 1860, 1030], // command guide + rotating line
+            ]
+          : [
+              [520, 16, 1040, 92], // top strip + quiet hint
+              [520, 96, 1040, 154], // lifetime milestones
+              [26, 132, 82, 812], // left rail
+              [26, 96, 200, 112], // token notice
+              [470, 620, 1030, 822], // poll + alert banner
+              [150, 240, 1010, 560], // our own status block
+              [150, 860, 650, 1030], // our own goal bars
+              [1140, 880, 1810, 1010], // our own prompt
+            ],
+        // chill nudges the moon right and up to clear the alert banner
+        moonX: CHILL ? 1420 : 1360,
+        moonY: CHILL ? 360 : 400,
+        moonR: CHILL ? 190 : 200,
 
         free(x, y) {
           // keep clear of the moon (and its glow) as well as every text block
           const dx = x - this.moonX,
             dy = y - this.moonY;
-          if (dx * dx + dy * dy < 250 * 250) return false;
+          const clear = this.moonR + 60;
+          if (dx * dx + dy * dy < clear * clear) return false;
           if (x < 60 || x > 1880 || y < 50 || y > 1040) return false;
           return !this.blocked.some(
             (r) => x > r[0] - 40 && x < r[2] + 40 && y > r[1] - 30 && y < r[3] + 30
@@ -2604,8 +2991,54 @@
           this.paintGoals();
         },
 
-        /* ── state ── */
+        /* ── chat effects (chill only) ──
+           note() already owns the comet system for real follows/subs; a wave
+           is the same object with no gains attached, so it stays violet. */
+        wave(name) {
+          if (!this.on) return;
+          this.shots.push({
+            x: -160,
+            y: 120 + Math.random() * 520,
+            vx: 5.4 + Math.random() * 1.6,
+            vy: 0.9 + Math.random() * 0.7,
+            life: 0,
+            max: 460,
+            name: String(name || "someone"),
+            ember: false,
+          });
+          if (this.shots.length > 6) this.shots.shift();
+        },
+
+        /* a bloom lands on the viewer's own star, so !heart is how you find
+           yourself in the sky. No star means the sky was full when they first
+           spoke (place() returned null) — nothing to bloom on, so skip. */
+        bloom(login) {
+          if (!this.on) return;
+          const st = this.stars.get(login);
+          if (!st) return;
+          for (let i = 0; i < 14; i++) {
+            const a = (i / 14) * 6.283 + Math.random() * 0.4;
+            const sp = 0.9 + Math.random() * 1.5;
+            this.blooms.push({
+              x: st.x,
+              y: st.y,
+              vx: Math.cos(a) * sp,
+              vy: Math.sin(a) * sp,
+              life: 0,
+              max: 70 + Math.random() * 30,
+            });
+          }
+          st.bright = 1;
+          st.last = Date.now();
+          if (this.blooms.length > 260) this.blooms.splice(0, 60);
+        },
+
+        /* ── state ──
+           Chill is its own OBS source you toggle, and its layout has no room
+           for a countdown — so away commands reaching this source no-op
+           rather than half-rendering a BRB screen over the camera. */
         brb(minutes) {
+          if (CHILL) return;
           const m = Math.max(1, Math.min(180, parseInt(minutes) || CONFIG.brbMinutes));
           this.state = "brb";
           this.since = Date.now();
@@ -2614,6 +3047,7 @@
           this.share();
         },
         soon(minutes) {
+          if (CHILL) return;
           const m = Math.max(1, Math.min(180, parseInt(minutes) || CONFIG.brbMinutes));
           this.state = "soon";
           this.since = Date.now();
@@ -2622,6 +3056,7 @@
           this.share();
         },
         afk() {
+          if (CHILL) return;
           this.state = "afk";
           this.since = Date.now();
           this.until = 0;
@@ -2629,6 +3064,7 @@
           this.share();
         },
         back() {
+          if (CHILL) return;
           this.state = "back";
           this.until = 0;
           this.share();
@@ -2669,6 +3105,25 @@
           });
         },
 
+        /* ── command guide ──
+           Viewers can't use commands they've never seen, so the full list
+           leads on entry and then gets out of the way — the rotating line
+           carries it from there. Re-armed by setVisible(), so hiding and
+           re-showing the source in OBS replays the intro. */
+        showGuide() {
+          if (!CHILL || !this.guideEl) return;
+          clearTimeout(this.guideTimer);
+          this.guideEl.classList.add("on");
+          this.promptBox.classList.add("hushed");
+          this.guideTimer = setTimeout(
+            () => {
+              this.guideEl.classList.remove("on");
+              this.promptBox.classList.remove("hushed");
+            },
+            Math.max(3, CONFIG.guideSeconds) * 1000
+          );
+        },
+
         /* ── the loop ── */
         setVisible(v) {
           if (!this.on) return;
@@ -2678,6 +3133,7 @@
             if (MODE === "brb") this.brb(qs.get("min"));
             else if (MODE === "soon") this.soon(qs.get("min"));
             else if (MODE === "afk") this.afk();
+            else if (CHILL) this.showGuide(); // replay the intro on entry
             this.paused = false;
             this.start();
           } else {
@@ -2704,6 +3160,8 @@
           this.kickerEl = document.getElementById("scKicker");
           this.subEl = document.getElementById("scSub");
           this.promptEl = document.getElementById("scPromptText");
+          this.promptBox = document.getElementById("scPrompt");
+          this.guideEl = document.getElementById("scGuide");
 
           this.goalsEl.innerHTML = this.goalDefs()
             .map(
@@ -2730,8 +3188,27 @@
           else if (MODE === "soon") this.soon(qs.get("min"));
           else if (MODE === "afk") this.afk();
 
+          if (CHILL) {
+            document.getElementById("scPromptLabel").textContent =
+              "Chat commands";
+            document.getElementById("scGuideList").innerHTML =
+              CHILL_COMMANDS.map(
+                (k) =>
+                  '<div class="cmd"><span class="c">' +
+                  esc(k.c) +
+                  '</span><span class="d">' +
+                  esc(k.d) +
+                  "</span></div>"
+              ).join("");
+            this.showGuide();
+          }
+
           const prompts = () =>
-            this.state === "soon" ? SOON_PROMPTS : AWAY_PROMPTS;
+            CHILL
+              ? CHILL_PROMPTS
+              : this.state === "soon"
+                ? SOON_PROMPTS
+                : AWAY_PROMPTS;
           let pi = 0;
           this.promptEl.innerHTML = prompts()[0];
           setInterval(() => {
@@ -2748,6 +3225,8 @@
             this.bc = new BroadcastChannel("rawad-away");
             this.bc.onmessage = (e) => {
               const d = e.data || {};
+              // a live BRB source must not drag the chill scene into its state
+              if (CHILL) return;
               if (!d.state || d.since <= this.since) return;
               this.state = d.state;
               this.until = d.until;
@@ -2776,17 +3255,28 @@
           t = now / 1000;
         g.clearRect(0, 0, 1920, 1080);
 
-        // backdrop
-        const bg = g.createRadialGradient(1360, 360, 80, 960, 540, 1400);
-        bg.addColorStop(0, "#1a1030");
-        bg.addColorStop(0.55, "#0b0718");
+        const v = CHILL ? Vibe.step() : null;
+
+        // backdrop. Away modes keep their literal colours so nothing about the
+        // existing scene shifts; chill reads its palette off the vibe instead.
+        const bg = g.createRadialGradient(
+          CHILL ? this.moonX : 1360,
+          CHILL ? this.moonY : 360,
+          80,
+          960,
+          540,
+          1400
+        );
+        bg.addColorStop(0, v ? Vibe.rgb("top", 1) : "#1a1030");
+        bg.addColorStop(0.55, v ? Vibe.rgb("mid", 1) : "#0b0718");
         bg.addColorStop(1, "#06040d");
         g.fillStyle = bg;
         g.fillRect(0, 0, 1920, 1080);
 
         // ambient dust
+        const drift = v ? v.drift : 1;
         this.dust.forEach((d) => {
-          d.tw += d.sp;
+          d.tw += d.sp * drift;
           const a = d.a * (0.55 + 0.45 * Math.sin(d.tw));
           g.globalAlpha = a;
           g.fillStyle = "#cdbbeb";
@@ -2799,10 +3289,115 @@
         // lines first so the moon occludes them — otherwise the constellation
         // draws straight across the moon's face and looks like scratches
         this.drawLines(g);
+
+        /* The camera hole is punched after the constellation but before the
+           bright elements, and that ordering is the whole trick: lines get
+           clipped at the frame instead of drifting across your face, while a
+           comet still streaks in front of the webcam like it's meant to. */
+        if (CHILL) this.drawCamera(g, t);
+
         this.drawMoonBig(g, now, t);
         this.drawStars(g, now, t);
         this.drawShots(g);
+        this.drawBlooms(g);
         this.tick(now);
+      };
+
+      /* rounded-rect path built by hand — ctx.roundRect is recent enough that
+         not every OBS CEF build has it, and a missing frame is not worth the
+         risk of a thrown TypeError killing the whole render loop */
+      Scene.roundRect = function (g, x, y, w, h, r) {
+        g.beginPath();
+        g.moveTo(x + r, y);
+        g.arcTo(x + w, y, x + w, y + h, r);
+        g.arcTo(x + w, y + h, x, y + h, r);
+        g.arcTo(x, y + h, x, y, r);
+        g.arcTo(x, y, x + w, y, r);
+        g.closePath();
+      };
+
+      /* The camera source sits BEHIND this browser source in OBS, so the frame
+         is a hole punched through the backdrop rather than something drawn on
+         top of it: clear the rect so the webcam shows through, darken its
+         edges so it blends into the sky instead of ending in a hard rectangle,
+         then lay the ring over the seam. */
+      Scene.drawCamera = function (g, t) {
+        const cam = CONFIG.camera;
+        const x1 = cam[0],
+          y1 = cam[1],
+          w = cam[2] - cam[0],
+          h = cam[3] - cam[1],
+          r = 26;
+
+        g.save();
+        this.roundRect(g, x1, y1, w, h, r);
+        g.clip();
+        g.clearRect(x1, y1, w, h);
+        // in a browser preview there is no camera behind us, so the hole would
+        // just show the page — stand one in so the frame reads as a frame
+        if (DEMO) {
+          g.fillStyle = "rgba(18,10,34,.92)";
+          g.fillRect(x1, y1, w, h);
+          g.font = "600 15px Rajdhani, sans-serif";
+          g.fillStyle = "rgba(243,238,228,.3)";
+          g.textAlign = "center";
+          g.fillText("CAMERA", x1 + w / 2, y1 + h / 2);
+          g.textAlign = "left";
+        }
+        // vignette: nothing in the middle, strongest into the corners
+        const vig = g.createRadialGradient(
+          x1 + w / 2,
+          y1 + h / 2,
+          Math.min(w, h) * 0.34,
+          x1 + w / 2,
+          y1 + h / 2,
+          Math.max(w, h) * 0.72
+        );
+        vig.addColorStop(0, "rgba(6,4,13,0)");
+        vig.addColorStop(1, "rgba(6,4,13,.85)");
+        g.fillStyle = vig;
+        g.fillRect(x1, y1, w, h);
+        g.restore();
+
+        // ring, breathing with chat energy
+        const pulse = 0.5 + 0.5 * Math.sin(t * 0.9);
+        g.save();
+        g.shadowColor = Vibe.rgb("glow", 0.5 + 0.35 * Vibe.energy);
+        g.shadowBlur = 24 + 26 * Vibe.energy * pulse;
+        g.strokeStyle = "rgba(169,123,255," + (0.34 + 0.3 * Vibe.energy) + ")";
+        g.lineWidth = 2;
+        this.roundRect(g, x1, y1, w, h, r);
+        g.stroke();
+        g.restore();
+
+        // brush accents on two corners, echoing the swoosh under the wordmark
+        g.strokeStyle = "rgba(243,238,228,.5)";
+        g.lineWidth = 3;
+        g.lineCap = "round";
+        g.beginPath();
+        g.moveTo(x1 + r, y1 - 1);
+        g.lineTo(x1 + w * 0.42, y1 - 1);
+        g.moveTo(x1 + w - r, y1 + h + 1);
+        g.lineTo(x1 + w * 0.58, y1 + h + 1);
+        g.stroke();
+        g.lineCap = "butt";
+      };
+
+      /* !heart — a short bloom on the sender's own star */
+      Scene.drawBlooms = function (g) {
+        this.blooms = this.blooms.filter((p) => p.life < p.max);
+        this.blooms.forEach((p) => {
+          p.life++;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= 0.965;
+          p.vy *= 0.965;
+          const fade = 1 - p.life / p.max;
+          g.fillStyle = "rgba(233,224,255," + 0.85 * fade + ")";
+          g.beginPath();
+          g.arc(p.x, p.y, 2.4 * fade + 0.6, 0, 6.283);
+          g.fill();
+        });
       };
 
       Scene.drawMoonBig = function (g, now, t) {
@@ -2908,10 +3503,13 @@
           .slice(0, CONFIG.starLabels)
           .map(([l]) => l);
 
+        // a livelier room makes the sky twinkle harder
+        const amp = CHILL && Vibe.cur ? 0.18 * Vibe.cur.twinkle : 0.18;
+
         this.stars.forEach((s, login) => {
           const age = (now - s.last) / 1000;
           s.bright = Math.max(0.28, 1 - age / 26);
-          const tw = 0.82 + 0.18 * Math.sin(t * 2.1 + s.x * 0.01);
+          const tw = 1 - amp + amp * Math.sin(t * 2.1 + s.x * 0.01);
           const rad = 1.7 + s.bright * 3.1;
 
           const halo = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, rad * 5);
@@ -2930,7 +3528,12 @@
           if (labelled.includes(login)) {
             g.font = "600 15px Rajdhani, sans-serif";
             g.fillStyle = "rgba(243,238,228," + (0.3 + 0.55 * s.bright) + ")";
-            g.fillText(s.name, s.x + rad + 9, s.y + 5);
+            // a star may sit as far right as x1880, so flip the label inward
+            // rather than letting a long name run off the stage
+            const flip = s.x > 1560;
+            g.textAlign = flip ? "right" : "left";
+            g.fillText(s.name, s.x + (flip ? -rad - 9 : rad + 9), s.y + 5);
+            g.textAlign = "left";
           }
         });
       };
@@ -2978,6 +3581,7 @@
       Scene._last = {};
 
       Scene.tick = function (now) {
+        if (CHILL) return; // no countdown in chill — the status block is hidden
         const S = (el, v) => this.set(el, "textContent", v);
         if (this.state === "back") {
           S(this.kickerEl, "The vigil ends");
@@ -3235,6 +3839,18 @@
         }, 900);
         setTimeout(() => fate(pick(names)), 2500);
         setInterval(() => fate(pick(names)), 16000);
+
+        if (CHILL) {
+          // exercise the chill effects so a browser preview actually shows them
+          setInterval(() => Scene.wave(pick(crowd)), 11000);
+          setInterval(() => {
+            const who =
+              Scene.recent[(Math.random() * Scene.recent.length) | 0];
+            if (who) Scene.bloom(who);
+          }, 7000);
+          // swing the mood periodically so the vibe layer visibly drifts
+          setInterval(() => (Vibe.scores[pick(["hype", "funny", "cozy"])] += 7), 20000);
+        }
 
         // the burst is the real test: everything at once, on purpose
         setTimeout(() => testAlert("burst"), 4000);
