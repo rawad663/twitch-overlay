@@ -826,8 +826,9 @@
          Camera-on "just chatting" mode. The HUD source is NOT layered during
          a chill session, so this owns the whole stage and the alert banner
          comes back — the HUD isn't there to show it.
-           camera x80–700   y240–1000     moon   cx1420 cy360 r190
-           banner x860–1560 y660–870      guide  x760–1860 y900–1030      */
+           titles x80–700   y60–276       camera cx390 cy610 r310
+           banner x860–1560 y660–870      guide  x760–1860 y900–1030
+           moon   cx1420 cy360 r190                                      */
 
       /* The canvas paints the whole backdrop in chill and then clears a hole
          for the camera behind it — an opaque body would fill that hole back
@@ -1048,9 +1049,15 @@
       <!-- chill keep-out zones (?mode=chill&guide=1) — align the camera here -->
       <div
         class="zone chillzone"
-        style="left: 80px; top: 240px; width: 620px; height: 760px"
+        style="left: 80px; top: 60px; width: 620px; height: 216px"
       >
-        camera
+        title stack
+      </div>
+      <div
+        class="zone chillzone"
+        style="left: 80px; top: 300px; width: 620px; height: 620px"
+      >
+        camera (circle inscribed)
       </div>
       <div
         class="zone chillzone"
@@ -1227,7 +1234,21 @@
         goalMessages: 100,
 
         // ── chill scene (?mode=chill) ──
-        camera: [80, 240, 700, 1000], // frame the OBS camera source sits behind
+        /* bounding SQUARE of the camera circle, not a portrait rect: the frame
+           is drawn as a circle inscribed in this, and star keep-out still reads
+           it as a box (slightly conservative at the corners, which is fine) */
+        camera: [80, 300, 700, 920],
+        chillName: "Rawad", // wordmark above the frame
+        chillTagline: "Just chatting · chill stream",
+        chillTopics: [
+          // rotating line under the wordmark — edit freely, plain text only
+          "Tonight — hanging out, no agenda",
+          "Ask me anything, chat runs the room",
+          "The moon rises with the chatter",
+          "Requests open — say the word",
+          "Slow night, good company",
+        ],
+        topicSeconds: 12, // how long each topic line holds before the crossfade
         waveCooldown: 45, // seconds per viewer for !wave and !heart
         moonCooldown: 180, // !moon pushes a shared meter, so it costs more
         moonNudge: 3, // messages-worth of energy one !moon is worth
@@ -2880,6 +2901,7 @@
         shots: [],
         blooms: [],
         dust: [],
+        motes: [],
         raf: null,
         paused: false,
         moonFull: false,
@@ -2890,6 +2912,7 @@
            are the camera frame and our own text blocks. */
         blocked: CHILL
           ? [
+              [80, 60, 700, 276], // wordmark · tagline · topic · pulse
               CONFIG.camera, // camera frame
               [860, 690, 1560, 850], // alert banner
               [760, 856, 1860, 1030], // command guide + rotating line
@@ -3184,6 +3207,18 @@
               sp: Math.random() * 0.02 + 0.004,
             });
 
+          // a few motes in orbit around the camera frame, so the ring is never
+          // the only thing moving on the left half of the stage
+          if (CHILL)
+            for (let i = 0; i < 5; i++)
+              this.motes.push({
+                a: (i / 5) * 6.283 + Math.random(),
+                sp: (Math.random() * 0.0016 + 0.0009) * (i % 2 ? -1 : 1),
+                off: Math.random() * 26 + 26,
+                r: Math.random() * 1.4 + 1.1,
+                tw: Math.random() * 6.28,
+              });
+
           if (MODE === "brb") this.brb(qs.get("min"));
           else if (MODE === "soon") this.soon(qs.get("min"));
           else if (MODE === "afk") this.afk();
@@ -3273,6 +3308,8 @@
         g.fillStyle = bg;
         g.fillRect(0, 0, 1920, 1080);
 
+        if (CHILL) this.drawNebula(g, t);
+
         // ambient dust
         const drift = v ? v.drift : 1;
         this.dust.forEach((d) => {
@@ -3294,7 +3331,10 @@
            bright elements, and that ordering is the whole trick: lines get
            clipped at the frame instead of drifting across your face, while a
            comet still streaks in front of the webcam like it's meant to. */
-        if (CHILL) this.drawCamera(g, t);
+        if (CHILL) {
+          this.drawCamera(g, t);
+          this.drawNameplate(g, now, t);
+        }
 
         this.drawMoonBig(g, now, t);
         this.drawStars(g, now, t);
@@ -3303,60 +3343,79 @@
         this.tick(now);
       };
 
-      /* rounded-rect path built by hand — ctx.roundRect is recent enough that
-         not every OBS CEF build has it, and a missing frame is not worth the
-         risk of a thrown TypeError killing the whole render loop */
-      Scene.roundRect = function (g, x, y, w, h, r) {
-        g.beginPath();
-        g.moveTo(x + r, y);
-        g.arcTo(x + w, y, x + w, y + h, r);
-        g.arcTo(x + w, y + h, x, y + h, r);
-        g.arcTo(x, y + h, x, y, r);
-        g.arcTo(x, y, x + w, y, r);
-        g.closePath();
+      /* letter-spaced caps, laid out a glyph at a time. ctx.letterSpacing is
+         too new to count on in every OBS CEF build, and the rest of the file
+         fakes tracking with double spaces — this does it properly without
+         betting the render loop on a young API. */
+      Scene.tracked = function (g, text, cx, y, px, em) {
+        const s = String(text).toUpperCase(),
+          sp = px * (em || 0.3);
+        g.font = "600 " + px + "px Rajdhani, sans-serif";
+        let w = -sp;
+        for (let i = 0; i < s.length; i++) w += g.measureText(s[i]).width + sp;
+        let x = cx - w / 2;
+        const align = g.textAlign;
+        g.textAlign = "left";
+        for (let i = 0; i < s.length; i++) {
+          g.fillText(s[i], x, y);
+          x += g.measureText(s[i]).width + sp;
+        }
+        g.textAlign = align;
+      };
+
+      /* geometry of the camera circle, derived from the bounding square in
+         CONFIG so that array stays the one place the frame is positioned */
+      Scene.cam = function () {
+        const c = CONFIG.camera;
+        return {
+          x: c[0],
+          y: c[1],
+          w: c[2] - c[0],
+          h: c[3] - c[1],
+          cx: (c[0] + c[2]) / 2,
+          cy: (c[1] + c[3]) / 2,
+          r: Math.min(c[2] - c[0], c[3] - c[1]) / 2,
+        };
       };
 
       /* The camera source sits BEHIND this browser source in OBS, so the frame
          is a hole punched through the backdrop rather than something drawn on
-         top of it: clear the rect so the webcam shows through, darken its
-         edges so it blends into the sky instead of ending in a hard rectangle,
-         then lay the ring over the seam. */
+         top of it: clear inside the circle so the webcam shows through, feather
+         its edge so it dissolves into the sky instead of ending on a hard cut,
+         then lay the ring and the energy orbit over the seam. */
       Scene.drawCamera = function (g, t) {
-        const cam = CONFIG.camera;
-        const x1 = cam[0],
-          y1 = cam[1],
-          w = cam[2] - cam[0],
-          h = cam[3] - cam[1],
-          r = 26;
+        const c = this.cam();
 
         g.save();
-        this.roundRect(g, x1, y1, w, h, r);
+        g.beginPath();
+        g.arc(c.cx, c.cy, c.r, 0, 6.283);
         g.clip();
-        g.clearRect(x1, y1, w, h);
+        g.clearRect(c.x, c.y, c.w, c.h);
         // in a browser preview there is no camera behind us, so the hole would
         // just show the page — stand one in so the frame reads as a frame
         if (DEMO) {
           g.fillStyle = "rgba(18,10,34,.92)";
-          g.fillRect(x1, y1, w, h);
+          g.fillRect(c.x, c.y, c.w, c.h);
           g.font = "600 15px Rajdhani, sans-serif";
           g.fillStyle = "rgba(243,238,228,.3)";
           g.textAlign = "center";
-          g.fillText("CAMERA", x1 + w / 2, y1 + h / 2);
+          g.fillText("CAMERA", c.cx, c.cy);
           g.textAlign = "left";
         }
-        // vignette: nothing in the middle, strongest into the corners
+        // feathered edge: clear in the middle, dark by the time it reaches the
+        // ring, so there is no visible rim where the webcam stops
         const vig = g.createRadialGradient(
-          x1 + w / 2,
-          y1 + h / 2,
-          Math.min(w, h) * 0.34,
-          x1 + w / 2,
-          y1 + h / 2,
-          Math.max(w, h) * 0.72
+          c.cx,
+          c.cy,
+          c.r * 0.62,
+          c.cx,
+          c.cy,
+          c.r
         );
         vig.addColorStop(0, "rgba(6,4,13,0)");
         vig.addColorStop(1, "rgba(6,4,13,.85)");
         g.fillStyle = vig;
-        g.fillRect(x1, y1, w, h);
+        g.fillRect(c.x, c.y, c.w, c.h);
         g.restore();
 
         // ring, breathing with chat energy
@@ -3366,21 +3425,160 @@
         g.shadowBlur = 24 + 26 * Vibe.energy * pulse;
         g.strokeStyle = "rgba(169,123,255," + (0.34 + 0.3 * Vibe.energy) + ")";
         g.lineWidth = 2;
-        this.roundRect(g, x1, y1, w, h, r);
+        g.beginPath();
+        g.arc(c.cx, c.cy, c.r, 0, 6.283);
         g.stroke();
         g.restore();
 
-        // brush accents on two corners, echoing the swoosh under the wordmark
+        // brush accents, the arc version of the swoosh under the wordmark
         g.strokeStyle = "rgba(243,238,228,.5)";
         g.lineWidth = 3;
         g.lineCap = "round";
         g.beginPath();
-        g.moveTo(x1 + r, y1 - 1);
-        g.lineTo(x1 + w * 0.42, y1 - 1);
-        g.moveTo(x1 + w - r, y1 + h + 1);
-        g.lineTo(x1 + w * 0.58, y1 + h + 1);
+        g.arc(c.cx, c.cy, c.r, -2.88, -2.09);
+        g.stroke();
+        g.beginPath();
+        g.arc(c.cx, c.cy, c.r, 0.26, 1.05);
         g.stroke();
         g.lineCap = "butt";
+
+        this.drawOrbit(g, c, t);
+      };
+
+      /* chat energy as an arc around the frame — the same reading the moon
+         gives on the right, close enough to your face to catch on camera */
+      Scene.drawOrbit = function (g, c, t) {
+        const ro = c.r + 26;
+
+        g.strokeStyle = "rgba(169,123,255,.13)";
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(c.cx, c.cy, ro, 0, 6.283);
+        g.stroke();
+
+        // starts at the top and fills clockwise
+        const a0 = -Math.PI / 2,
+          a1 = a0 + 6.283 * Vibe.energy;
+        if (Vibe.energy > 0.004) {
+          g.save();
+          g.shadowColor = Vibe.rgb("glow", 0.55);
+          g.shadowBlur = 14;
+          g.strokeStyle = Vibe.rgb("glow", 0.72);
+          g.lineWidth = 3;
+          g.lineCap = "round";
+          g.beginPath();
+          g.arc(c.cx, c.cy, ro, a0, a1);
+          g.stroke();
+          g.restore();
+
+          g.fillStyle = "rgba(243,238,228,.85)";
+          g.beginPath();
+          g.arc(c.cx + ro * Math.cos(a1), c.cy + ro * Math.sin(a1), 3.2, 0, 6.283);
+          g.fill();
+        }
+
+        // motes drifting round the outside, sped up by the mood
+        const drift = Vibe.cur ? Vibe.cur.drift : 1;
+        this.motes.forEach((m) => {
+          m.a += m.sp * drift;
+          m.tw += 0.02;
+          const rr = ro + m.off + 5 * Math.sin(m.tw);
+          g.globalAlpha = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(m.tw));
+          g.fillStyle = "#cdbbeb";
+          g.beginPath();
+          g.arc(
+            c.cx + rr * Math.cos(m.a),
+            c.cy + rr * Math.sin(m.a),
+            m.r,
+            0,
+            6.283
+          );
+          g.fill();
+        });
+        g.globalAlpha = 1;
+      };
+
+      /* Two very soft clouds drifting behind everything. Low alpha on purpose:
+         this should read as depth in the sky, never as a shape. Violet→rune
+         only — ember is reserved for gains. */
+      Scene.drawNebula = function (g, t) {
+        const blobs = [
+          [1450, 300, 520, "glow", 0.05],
+          [640, 760, 620, "top", 0.07],
+        ];
+        blobs.forEach((b, i) => {
+          const x = b[0] + 40 * Math.sin(t * 0.045 + i * 2.1),
+            y = b[1] + 26 * Math.cos(t * 0.037 + i);
+          const grd = g.createRadialGradient(x, y, 0, x, y, b[2]);
+          grd.addColorStop(0, Vibe.rgb(b[3], b[4] * (0.6 + 0.6 * Vibe.energy)));
+          grd.addColorStop(1, Vibe.rgb(b[3], 0));
+          g.fillStyle = grd;
+          g.fillRect(x - b[2], y - b[2], b[2] * 2, b[2] * 2);
+        });
+      };
+
+      /* The identity block above the frame: wordmark, swoosh, tagline, a slowly
+         rotating line and a live readout of the room. Every string comes from
+         CONFIG — chat text never reaches this, the vibe only ever counts words
+         and throws them away. */
+      Scene.drawNameplate = function (g, now, t) {
+        const c = this.cam(),
+          cx = c.cx;
+
+        g.textAlign = "center";
+        g.textBaseline = "alphabetic";
+
+        // wordmark
+        g.save();
+        g.shadowColor = Vibe.rgb("glow", 0.45);
+        g.shadowBlur = 18 + 14 * Vibe.energy;
+        g.font = "700 72px 'Barlow Condensed', Rajdhani, sans-serif";
+        g.fillStyle = "#F3EEE4";
+        g.fillText(CONFIG.chillName, cx, 118);
+        g.restore();
+
+        // swoosh — a brush stroke under the name, breathing with the room
+        g.save();
+        g.strokeStyle = Vibe.rgb("glow", 0.5 + 0.3 * Vibe.energy);
+        g.lineWidth = 3;
+        g.lineCap = "round";
+        g.beginPath();
+        g.moveTo(cx - 132, 134);
+        g.quadraticCurveTo(cx, 146 + 2 * Math.sin(t * 0.8), cx + 132, 130);
+        g.stroke();
+        g.restore();
+
+        g.fillStyle = "rgba(243,238,228,.4)";
+        this.tracked(g, CONFIG.chillTagline, cx, 172, 12, 0.34);
+
+        // rotating topic, crossfaded so nothing ever pops
+        const topics = CONFIG.chillTopics || [];
+        if (topics.length) {
+          const span = Math.max(3, CONFIG.topicSeconds) * 1000,
+            slot = Math.floor(now / span),
+            into = (now % span) / span,
+            fade = Math.min(1, into / 0.06, (1 - into) / 0.06);
+          g.font = "500 22px Rajdhani, sans-serif";
+          g.fillStyle = "rgba(243,238,228," + 0.62 * Math.max(0, fade) + ")";
+          g.fillText(topics[slot % topics.length], cx, 214);
+        }
+
+        // live readout of the room, off the same 60s window the moon reads
+        const live = beats.filter((b) => now - b < 60000).length;
+        const souls = this.stars.size;
+        g.fillStyle = "rgba(169,123,255,.5)";
+        this.tracked(
+          g,
+          souls === 1
+            ? "1 soul in the sky · " + live + " msg/min"
+            : souls + " souls in the sky · " + live + " msg/min",
+          cx,
+          252,
+          11,
+          0.3
+        );
+
+        g.textAlign = "left";
       };
 
       /* !heart — a short bloom on the sender's own star */

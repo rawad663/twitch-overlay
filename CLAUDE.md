@@ -31,7 +31,7 @@ admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay 
 - **Milestones** — HUD lifetime follower/sub totals vs dock targets (`milestoneFollows` / `milestoneSubs`). Helix `channels/followers` (any token) and `subscriptions` (`channel:read:subscriptions`). Scene source does not poll. Away-scene `goalFollows` / `goalSubs` / `goalMessages` stay session gains. Widget hides during banners/polls and when `showMilestones` is false.
 - **Director** — one serial banner queue. Priority: raid 50 > massgift 45 > sub/gift 40 > bigcheer 35 > cheer 20 > follow 15 > system 10. Over `queueCap`, lowest prio is dropped; sub/gift/raid are never shed if they are the lowest remaining.
 - **Scene** — canvas starfield. Pauses when OBS reports the source hidden (`obsstudio.onVisibilityChange`). Showing the source resets the timer. `soon` is a countdown like `brb` (hype copy, not "I'm gone"); `afk` is elapsed. HUD lanes stay empty in scene mode (CSS hides `#rail`, `#strip`, `#goals`, `#poll`, `#oracle`, `#notice`).
-- **Chill** (`?mode=chill`) — a `SCENE`, so it inherits the no-Helix/no-milestones/`role: "scene"` gates for free. Differences: no HUD is layered, so `#oracle` comes *back* (repositioned right) and `body` goes transparent — the canvas paints the backdrop and clears a hole for the camera source behind it. `Scene.state` is `"chill"`, `tick()` early-returns, and `brb/soon/afk/back` no-op so an away command can't half-render a countdown over the camera. `!wave`/`!heart`/`!moon` sit **above** the `!m.mod` gate in `handle()` — they're for chat, not mods.
+- **Chill** (`?mode=chill`) — a `SCENE`, so it inherits the no-Helix/no-milestones/`role: "scene"` gates for free. Differences: no HUD is layered, so `#oracle` comes *back* (repositioned right) and `body` goes transparent — the canvas paints the backdrop and clears a hole for the camera source behind it. `Scene.state` is `"chill"`, `tick()` early-returns, and `brb/soon/afk/back` no-op so an away command can't half-render a countdown over the camera. The left column carries a canvas nameplate (`drawNameplate`: wordmark, swoosh, tagline, a topic line rotating on `CONFIG.topicSeconds`, and a souls/msg-per-min readout) over a circular camera hole (`drawCamera` → `drawOrbit`), plus a low-alpha `drawNebula` wash. All that copy comes from `CONFIG` — chat text never reaches the canvas. `!wave`/`!heart`/`!moon` sit **above** the `!m.mod` gate in `handle()` — they're for chat, not mods.
 - **Vibe** — chill-only ambience. Intensity off the existing `beats` array; mood from a keyword tally (`calm|cozy|funny|hype`) that decays on a 2s timer and eases per frame. Counts words and discards them — never renders chat text. Moods separate on depth/motion/twinkle inside the violet→rune ramp; **none may use ember**.
 - **Demo** — `!window.obsstudio && ?live !== 1`, or `?demo=1`. Fake traffic; no IRC.
 
@@ -67,7 +67,8 @@ Tokens in `:root`: `--violet #7A2FF2`, `--deep #3D0F8A`, `--rune #A97BFF`, `--cr
 
 Chill has no HUD over it, so it uses its own keep-out set instead (`CONFIG.camera` drives the first):
 
-- camera `x80–700 y240–1000`
+- title stack `x80–700 y60–276` — wordmark, tagline, rotating topic, pulse readout
+- camera `x80–700 y300–920` — the array is the bounding **square**; the frame drawn is the circle inscribed in it (`cx390 cy610 r310`), with the energy orbit and its motes riding just outside
 - banner `x860–1560 y690–850`
 - guide · prompt `x760–1860 y856–1030`
 - moon `cx1420 cy360 r190` — the "chat energy" caption lands at `y642`, which is what pins the banner to `y700`
