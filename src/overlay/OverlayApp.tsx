@@ -20,6 +20,12 @@ import { Alerts } from "./director/alerts";
 import { FATES, pick, esc } from "./director/copy";
 import { Sound } from "./audio/sound";
 import { Scene } from "./engine/scene";
+import {
+  SAVE_THROTTLE_MS,
+  SessionLedger,
+  loadSession,
+  saveSession,
+} from "./engine/session";
 import type { SceneStatus } from "./engine/types";
 import { Irc, type IrcStatus } from "./chat/irc";
 import { handle } from "./chat/handle";
@@ -99,7 +105,8 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
 
   const sceneRef = useRef<Scene | null>(null);
   const milestonesRef = useRef<Milestones | null>(null);
-  const seenChatters = useRef(new Set<string>());
+  const [ledger] = useState(() => SessionLedger.from(loadSession()));
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const say = useCallback(
     (who: string, line: string) => {
@@ -114,7 +121,33 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     onFull: (count) =>
       say("The moon is full.", `Chat lit it up — ${count} messages this minute.`),
     t0,
+    initialBeats: ledger.beats,
   });
+
+  const flushSession = useCallback(() => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    saveSession(ledger.dump(moon.beats.current));
+  }, [ledger, moon.beats]);
+
+  const scheduleSave = useCallback(() => {
+    if (saveTimer.current) return;
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      saveSession(ledger.dump(moon.beats.current));
+    }, SAVE_THROTTLE_MS);
+  }, [ledger, moon.beats]);
+
+  const ping = useCallback(() => {
+    moon.ping();
+    scheduleSave();
+  }, [moon.ping, scheduleSave]);
+
+  /* Mood decay used to live on the chill canvas. The HUD has to keep scoring
+     too, or Lounge would open calm after a hype PoE session. */
+  useInterval(() => ledger.vibe.decay(), 2000);
 
   /* ── the scene engine ── */
   const onCanvas = useCallback(
@@ -130,6 +163,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         demo,
         minutes: params.minutes,
         beats: moon.beats.current,
+        session: ledger,
         onStatus: (st) => {
           setSceneStatus(st);
           setGuideOn(sceneRef.current?.guideOn ?? false);
@@ -138,23 +172,39 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       sceneRef.current = sc;
       sc.mount(el);
     },
-    [chill, mode, demo, params.minutes, moon.beats],
+    [chill, mode, demo, params.minutes, moon.beats, ledger],
   );
 
   /* OBS hide/show. Showing a source is the one-click reset — it re-arms the
      countdown and replays the chill intro. Hidden sources keep running
-     otherwise, so pausing here is what stops a hidden scene burning a core. */
+     otherwise, so pausing here is what stops a hidden scene burning a core.
+     Flush the sky first: OBS may destroy the page as soon as we go hidden. */
   useEffect(() => {
     const onVis = (e: Event) => {
       const detail = (e as CustomEvent<{ visible?: boolean }>).detail;
-      sceneRef.current?.setVisible(detail ? detail.visible !== false : true);
+      const visible = detail ? detail.visible !== false : true;
+      if (!visible) flushSession();
+      sceneRef.current?.setVisible(visible);
     };
     window.addEventListener("obsSourceVisibleChanged", onVis);
     if (window.obsstudio) {
-      window.obsstudio.onVisibilityChange = (v: boolean) => sceneRef.current?.setVisible(!!v);
+      window.obsstudio.onVisibilityChange = (v: boolean) => {
+        if (!v) flushSession();
+        sceneRef.current?.setVisible(!!v);
+      };
     }
     return () => window.removeEventListener("obsSourceVisibleChanged", onVis);
-  }, []);
+  }, [flushSession]);
+
+  useEffect(() => {
+    const onHide = () => flushSession();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      flushSession();
+    };
+  }, [flushSession]);
 
   /* ── alerts ── */
   const alerts = useMemo(
@@ -202,7 +252,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
           return;
         }
         case "moon":
-          for (let i = 0; i < CONFIG.moonNudge; i++) moon.ping();
+          for (let i = 0; i < CONFIG.moonNudge; i++) ping();
           return;
         case "burst":
           // seven at once — the only way to actually see the queue behave
@@ -218,17 +268,22 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
           return alerts.sub(u, 1);
       }
     },
-    [alerts, moon],
+    [alerts, ping],
   );
 
   /* ── chat ── */
   const deps = useMemo(
     () => ({
       chill,
-      ping: moon.ping,
-      star: (login: string, name: string) => sceneRef.current?.chat(login, name),
+      ping,
+      star: (login: string, name: string) => {
+        ledger.star(login, name);
+        sceneRef.current?.chat(login, name);
+        scheduleSave();
+      },
       vibe: (msg: string) => {
-        if (chill) sceneRef.current?.vibe.note(msg);
+        ledger.note(msg);
+        scheduleSave();
       },
       alerts: {
         welcome: (u: string) => alerts.welcome(u),
@@ -257,15 +312,15 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         vote: poll.vote,
       },
       firstMessage: (login: string) => {
-        if (seenChatters.current.has(login)) return false;
-        seenChatters.current.add(login);
-        return true;
+        const first = ledger.see(login);
+        if (first) scheduleSave();
+        return first;
       },
       cooldown,
       moonHeadroom: () =>
         Math.max(0, CONFIG.fullMoonMessages - moon.beats.current.length - 1),
     }),
-    [chill, moon, alerts, fate, say, testAlert, tallies, poll, cooldown],
+    [chill, ping, ledger, scheduleSave, alerts, fate, say, testAlert, tallies, poll, cooldown, moon],
   );
 
   // The IRC socket outlives any single render, so it reaches the current

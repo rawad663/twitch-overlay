@@ -101,4 +101,16 @@ describe("Vibe", () => {
     v.step(Array.from({ length: 100 }, () => now), 25);
     expect(v.energy).toBe(1);
   });
+
+  it("restore reseeds colour from the saved mood on the next frame", () => {
+    const v = new Vibe();
+    for (let i = 0; i < 5; i++) v.note("pog");
+    v.decay();
+    const rec = v.dump();
+    const b = new Vibe();
+    b.restore(rec);
+    expect(b.mood).toBe("hype");
+    expect(b.cur).toBeNull();
+    expect(b.step([], 25).top[0]).toBe(VIBES.hype.top[0]);
+  });
 });

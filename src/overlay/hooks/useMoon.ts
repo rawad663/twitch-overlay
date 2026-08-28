@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { CONFIG } from "@/config/config";
 import { useInterval } from "@/bus/useBus";
+import { hydrateBeats } from "../engine/session";
 
 export const PHASES = [
   "New moon",
@@ -26,6 +27,12 @@ export type MoonState = {
   count: number;
 };
 
+function hydrateCopy(beats: number[]): number[] {
+  const target: number[] = [];
+  hydrateBeats(target, beats);
+  return target;
+}
+
 /**
  * The chat-energy meter. `beats` is a plain array of timestamps that the scene
  * engine and Vibe both read directly — it's the one piece of shared mutable
@@ -36,23 +43,30 @@ export function useMoon({
   suppressed,
   onFull,
   t0,
+  initialBeats,
 }: {
   /** banners and polls hold the hint down */
   suppressed: () => boolean;
   onFull: (count: number) => void;
   t0: number;
+  /** restored chat-energy window from a previous source, copied in place */
+  initialBeats?: number[];
 }) {
-  const beats = useRef<number[]>([]);
+  const beats = useRef<number[]>(initialBeats ? hydrateCopy(initialBeats) : []);
   const fullUntil = useRef(0);
   const quietStart = useRef<number | null>(null);
   const flareTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [state, setState] = useState<MoonState>({
-    p: 0,
-    phase: PHASES[0]!,
-    full: false,
-    hint: false,
-    count: 0,
+  const [state, setState] = useState<MoonState>(() => {
+    const count = beats.current.length;
+    const p = Math.min(1, count / Math.max(1, CONFIG.fullMoonMessages));
+    return {
+      p,
+      phase: PHASES[Math.min(4, Math.floor(p * 4.999))]!,
+      full: false,
+      hint: false,
+      count,
+    };
   });
 
   const ping = useCallback(() => {

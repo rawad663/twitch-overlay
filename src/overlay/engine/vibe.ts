@@ -19,6 +19,11 @@
 
 export type VibeMood = "calm" | "cozy" | "funny" | "hype";
 
+export type VibeRecord = {
+  scores: Record<Exclude<VibeMood, "calm">, number>;
+  mood: VibeMood;
+};
+
 export type VibeState = {
   top: [number, number, number];
   mid: [number, number, number];
@@ -69,6 +74,22 @@ export class Vibe {
     for (const m of seen) {
       if (m !== "calm") this.scores[m] += 1;
     }
+  }
+
+  dump(): VibeRecord {
+    return { scores: { ...this.scores }, mood: this.mood };
+  }
+
+  /**
+   * Rehydrate from a session snapshot. `cur` stays null so the next frame
+   * seeds from this mood instead of easing in from a different source's mid-blend.
+   */
+  restore(rec: VibeRecord) {
+    this.scores.cozy = rec.scores.cozy;
+    this.scores.funny = rec.scores.funny;
+    this.scores.hype = rec.scores.hype;
+    this.mood = rec.mood;
+    this.cur = null;
   }
 
   /** Time-based, so the mood fades on its own during a lull. */
