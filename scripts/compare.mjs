@@ -1,11 +1,18 @@
 /**
- * Side-by-side screenshots of the new app and the original HTML, for eyeballing
- * the port. Writes pairs into .verify/compare/.
+ * Side-by-side screenshots of the PR's build against the live production
+ * site, so a visual regression is visible before merge. Writes pairs into
+ * .verify/compare/.
  *
- *   node scripts/compare.mjs
+ *   npm run build && node scripts/compare.mjs
  *
- * Both are frozen the same way: demo traffic off, IRC stubbed, and animations
- * disabled, so the only differences left are real ones.
+ * The PR side is served locally from ./out; the "main" side is the deployed
+ * production URL (override with COMPARE_BASE_URL for a one-off comparison
+ * against something else). Both are captured the same way: demo traffic off,
+ * IRC stubbed, and animations frozen once the entrance transitions finish, so
+ * the only differences left are real ones.
+ *
+ * This is informational, not a gate — see diff-shots.mjs, which never fails
+ * a build over a pixel difference.
  */
 import { createServer } from "node:http";
 import { readFile, mkdir } from "node:fs/promises";
@@ -18,6 +25,11 @@ const OUT = join(ROOT, "out");
 const DEST = join(ROOT, ".verify", "compare");
 const BASE = "/twitch-overlay";
 const PORT = 4323;
+
+const MAIN_ROOT = (process.env.COMPARE_BASE_URL ?? "https://rawad663.github.io/twitch-overlay").replace(
+  /\/$/,
+  "",
+);
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2", ".txt": "text/plain" };
 
@@ -43,11 +55,11 @@ const FREEZE = `*, *::before, *::after {
 }`;
 
 const MODES = [
-  ["hud", "", ""],
-  ["brb", "?mode=brb&min=15", "?mode=brb&min=15"],
-  ["soon", "?mode=soon&min=15", "?mode=soon&min=15"],
-  ["afk", "?mode=afk", "?mode=afk"],
-  ["chill", "?mode=chill", "?mode=chill"],
+  ["hud", ""],
+  ["brb", "?mode=brb&min=15"],
+  ["soon", "?mode=soon&min=15"],
+  ["afk", "?mode=afk"],
+  ["chill", "?mode=chill"],
 ];
 
 async function shoot(ctx, url, path) {
@@ -68,16 +80,15 @@ async function main() {
   await mkdir(DEST, { recursive: true });
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
-  const root = `http://localhost:${PORT}${BASE}`;
+  const prRoot = `http://localhost:${PORT}${BASE}`;
 
-  for (const [name, nextQs, legacyQs] of MODES) {
+  console.log(`comparing PR build (${prRoot}) against ${MAIN_ROOT}\n`);
+
+  for (const [name, qs] of MODES) {
     // ?live=1 keeps the demo's random traffic out of a comparison shot
-    await shoot(ctx, `${root}/${nextQs}${nextQs ? "&" : "?"}live=1`, join(DEST, `${name}-new.png`));
-    await shoot(
-      ctx,
-      `${root}/legacy/rawad-overlay.html${legacyQs}${legacyQs ? "&" : "?"}live=1`,
-      join(DEST, `${name}-old.png`),
-    );
+    const suffix = `${qs}${qs ? "&" : "?"}live=1`;
+    await shoot(ctx, `${prRoot}/${suffix}`, join(DEST, `${name}-pr.png`));
+    await shoot(ctx, `${MAIN_ROOT}/${suffix}`, join(DEST, `${name}-main.png`));
     console.log(`  captured ${name}`);
   }
 
