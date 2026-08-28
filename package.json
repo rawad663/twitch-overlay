@@ -13,7 +13,6 @@
     "test:watch": "vitest",
     "verify": "node scripts/verify.mjs",
     "verify:shots": "node scripts/verify.mjs --shots",
-    "verify:interop": "node scripts/verify-interop.mjs",
     "compare": "node scripts/compare.mjs && node scripts/diff-shots.mjs",
     "check": "npm run typecheck && npm run lint && npm run test",
     "check:full": "npm run check && npm run build && npm run verify"

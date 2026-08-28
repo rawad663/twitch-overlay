@@ -1,0 +1,39 @@
+name: Visual compare
+
+on:
+  pull_request:
+    branches: [main]
+
+# a new push to the same PR supersedes the old run rather than queuing behind it
+concurrency:
+  group: compare-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Install Playwright's browser
+        run: npx playwright install --with-deps chromium
+
+      # Screenshots this PR's build against the live production site and
+      # reports the pixel delta. Informational only — never fails the job on
+      # a diff, only on a real error (e.g. the build itself breaking, or
+      # production being unreachable).
+      - run: npm run compare
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compare-screenshots
+          path: .verify/compare/

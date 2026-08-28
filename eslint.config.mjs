@@ -2,8 +2,7 @@ import next from "eslint-config-next";
 
 const config = [
   {
-    // the originals are kept only as a reference for the port
-    ignores: ["legacy/**", "public/legacy/**", "out/**", ".next/**", ".verify/**"],
+    ignores: ["out/**", ".next/**", ".verify/**"],
   },
   ...next,
   {

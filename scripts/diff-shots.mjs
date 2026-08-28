@@ -4,8 +4,13 @@
  * browser rather than pulling in an image library.
  *
  *   node scripts/compare.mjs && node scripts/diff-shots.mjs
+ *
+ * This is informational only: it always exits 0 on a real diff (main().catch
+ * is the only nonzero exit, i.e. the script itself broke). A visual change is
+ * often the point of a PR — a human reads report.md and the screenshots and
+ * decides whether the diff is intentional, this just makes it visible.
  */
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "playwright";
 
@@ -22,12 +27,13 @@ async function dataUrl(file) {
 
 async function main() {
   const files = await readdir(DIR);
-  const names = [...new Set(files.map((f) => f.replace(/-(new|old)\.png$/, "")))].filter((n) =>
-    files.includes(`${n}-new.png`) && files.includes(`${n}-old.png`),
+  const names = [...new Set(files.map((f) => f.replace(/-(pr|main)\.png$/, "")))].filter((n) =>
+    files.includes(`${n}-pr.png`) && files.includes(`${n}-main.png`),
   );
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
+  const rows = [];
   let worst = 0;
 
   for (const name of names) {
@@ -65,18 +71,30 @@ async function main() {
         return (diff / (w * h)) * 100;
       },
       // handed over as data URLs — a blank about:blank page cannot fetch file://
-      [await dataUrl(`${name}-new.png`), await dataUrl(`${name}-old.png`), TOLERANCE],
+      [await dataUrl(`${name}-pr.png`), await dataUrl(`${name}-main.png`), TOLERANCE],
     );
 
     worst = Math.max(worst, pct);
+    rows.push({ name, pct });
     console.log(`  ${name.padEnd(6)} ${pct.toFixed(2)}% of pixels differ`);
   }
 
   await browser.close();
-  console.log(
-    `\nworst ${worst.toFixed(2)}%. The starfield is randomly placed and the clock ticks,` +
-      ` so a few percent is expected; a jump means a lane actually moved.`,
-  );
+
+  const note =
+    `worst ${worst.toFixed(2)}%. The starfield is randomly placed and the clock ticks,` +
+    ` so a few percent is expected; a jump means a lane actually moved.`;
+  console.log(`\n${note}`);
+
+  const report =
+    `# Visual compare — PR vs. production\n\n` +
+    `Informational only — this never blocks a merge on its own.\n\n` +
+    `| Mode | Diff | Screenshots |\n|---|---|---|\n` +
+    rows
+      .map((r) => `| ${r.name} | ${r.pct.toFixed(2)}% | \`${r.name}-pr.png\` / \`${r.name}-main.png\` |`)
+      .join("\n") +
+    `\n\n${note}\n`;
+  await writeFile(join(DIR, "report.md"), report);
 }
 
 main().catch((e) => {

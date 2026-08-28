@@ -119,18 +119,17 @@ Pushing to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy
 
 ## Verifying
 
-Beyond `npm run check`, three browser harnesses run the real exported site:
+Beyond `npm run check`, two browser harnesses run the real exported site (run `npm run build` first — both serve `./out`):
 
 | Command | What it proves |
 |---|---|
 | `npm run verify` | Every mode renders, lanes land on their stage coordinates, the canvas paints, the camera hole is really transparent, and the dock drives a live source end to end |
-| `npm run verify:interop` | The bus is still wire-compatible with the pre-migration HTML, in both directions |
-| `npm run compare` | Screenshots the new app against the originals in `legacy/` and reports the pixel delta |
+| `npm run compare` | Screenshots this build against the live production site (or `COMPARE_BASE_URL` if set) for every mode and reports the pixel delta into `.verify/compare/` |
 
-`npm run verify:shots` writes PNGs to `.verify/`. Run `npm run build` first — all three serve `./out`.
+`npm run verify:shots` writes PNGs to `.verify/`.
+
+`npm run compare` is informational, not a gate — [`.github/workflows/compare.yml`](.github/workflows/compare.yml) runs it on every PR and uploads the screenshots + `report.md` as a build artifact so a reviewer can see a visual diff before merge; it never fails the build over a pixel difference, only over a real error.
 
 ## Architecture
 
 See [CLAUDE.md](CLAUDE.md) for the module map, the control-bus contract and the design rules.
-
-The [`legacy/`](legacy/) directory holds the two original single-file versions. They are the reference the comparison harness diffs against, and can be deleted once you're happy with the port.

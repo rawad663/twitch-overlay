@@ -2,7 +2,7 @@
 
 Next.js static export (App Router, React 19, TypeScript, CSS Modules) for a Twitch overlay + OBS control dock. Deployed to GitHub Pages by Actions. Chat commands and OBS setup: see `README.md`.
 
-Was two hand-written HTML files until v2; `legacy/` keeps them as the comparison reference.
+Was two hand-written HTML files until v2 — see git history if you need the pre-migration reference.
 
 ## Layout
 
@@ -23,13 +23,12 @@ src/
     audio/sound.ts      Web Audio synthesis, no files
     hooks/ components/  OverlayApp.tsx wires it all together
   admin/                hooks/ + components/, AdminPanel.tsx
-scripts/                verify · verify-interop · compare · diff-shots (Playwright)
-legacy/                 the pre-migration HTML, for diffing
+scripts/                verify · compare · diff-shots (Playwright)
 ```
 
 ## Hard rules
 
-- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-1"`) only when that contract actually changes, and run `npm run verify:interop` after touching it.
+- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-1"`) only when that contract actually changes.
 - **The panel must not set `Bus.role`.** Sources set it and auto-ack; if the panel set one it would ack itself and delivery confirmation would be a lie.
 - **Never put tokens or secrets in the repo.** The token is a URL query on the OBS source (`?token=` + `?client_id=`). `CONFIG.clientId` is the public app id only. Scopes: `moderator:read:followers` (follow alerts), `channel:read:subscriptions` (sub milestone). Follower totals work with any valid token.
 - **Ember is gains only** — subs, gifts, raids, big cheers, completed goals. Follows stay violet. Reach it through `--accent-gain`, never `--ember` directly. `vibe.test.ts` enforces it for the mood palettes.
