@@ -1,0 +1,37 @@
+{
+  "name": "rawad-overlay",
+  "version": "2.0.0",
+  "private": true,
+  "description": "PoE-flavored Twitch overlay and OBS control dock for rawad663.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "preview": "npx --yes serve@latest out",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "node scripts/verify.mjs",
+    "verify:shots": "node scripts/verify.mjs --shots",
+    "verify:interop": "node scripts/verify-interop.mjs",
+    "compare": "node scripts/compare.mjs && node scripts/diff-shots.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "check:full": "npm run check && npm run build && npm run verify"
+  },
+  "dependencies": {
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.6",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.3.3",
+    "playwright": "^1.62.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

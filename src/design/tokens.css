@@ -1,0 +1,61 @@
+/* ═══════════════════════════════════════════════════════════════
+   RAWAD — design tokens
+
+   violet  #7A2FF2  the brush swoosh under the wordmark
+   deep    #3D0F8A  shadow side of the swoosh
+   rune    #A97BFF  the thin tick marks / rail text
+   cream   #F3EEE4  the brush wordmark
+   ember   #E8A33D  the castle sunset
+
+   Ember is reserved for GAINS ONLY — subs, gifts, raids, big cheers,
+   completed goals. Follows stay violet. Use --accent-gain rather than
+   --ember directly so any other use of it stands out in review.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --violet: #7a2ff2;
+  --deep: #3d0f8a;
+  --rune: #a97bff;
+  --cream: #f3eee4;
+  --ember: #e8a33d;
+  --ink: #0a0612;
+  --dim: rgba(243, 238, 228, 0.42);
+  --glow: 0 0 18px rgba(122, 47, 242, 0.55);
+
+  /* semantic alias — the only sanctioned way to reach ember */
+  --accent-gain: var(--ember);
+
+  /* admin dock chrome; unused by the overlay */
+  --panel: #140c25;
+  --line: rgba(169, 123, 255, 0.22);
+  --good: #58c98a;
+  --bad: #e8615d;
+
+  /* the one easing the whole product uses */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* next/font supplies these; the fallbacks keep a bare page readable */
+  --font-body: var(--font-rajdhani), system-ui, sans-serif;
+  --font-num: var(--font-barlow), "Barlow Condensed", sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
