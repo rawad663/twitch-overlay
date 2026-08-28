@@ -2,6 +2,7 @@ import type { AwayState } from "@/bus/types";
 import { CONFIG } from "@/config/config";
 import { MOON, cameraCircle, keepOut, type Rect } from "@/design/stage";
 import { Vibe } from "./vibe";
+import type { SessionLedger } from "./session";
 import type { Bloom, Dust, Mote, SceneStatus, Shot, Star } from "./types";
 import { drawFrame } from "./draw";
 
@@ -13,6 +14,8 @@ export type SceneOptions = {
   minutes: number | null;
   /** the moon's `beats` array — shared, not copied */
   beats: number[];
+  /** night's sky from a previous source; stars are re-placed for this layout */
+  session?: SessionLedger;
   onStatus: (s: SceneStatus) => void;
 };
 
@@ -38,7 +41,7 @@ export class Scene {
   dust: Array<Dust & { tw: number; sp: number }> = [];
   motes: Array<Mote & { tw: number; off: number }> = [];
 
-  vibe = new Vibe();
+  vibe: Vibe;
   moonFull = false;
   guideOn = false;
 
@@ -56,7 +59,6 @@ export class Scene {
   private paused = false;
   private destroyed = false;
   private lastStatus = 0;
-  private decayTimer: ReturnType<typeof setInterval> | null = null;
   private guideTimer: ReturnType<typeof setTimeout> | null = null;
   private bc: BroadcastChannel | null = null;
   private opts: SceneOptions;
@@ -66,6 +68,7 @@ export class Scene {
     this.chill = opts.chill;
     this.demo = opts.demo;
     this.beats = opts.beats;
+    this.vibe = opts.session?.vibe ?? new Vibe();
 
     this.state = opts.chill
       ? "chill"
@@ -158,6 +161,29 @@ export class Scene {
       0,
       CONFIG.constellation,
     );
+  }
+
+  /**
+   * Rebuild the sky from a session snapshot. Positions are computed for this
+   * mode's keep-outs — a star that fit the HUD-less chill camera hole may not
+   * fit the away layout, and vice versa.
+   */
+  hydrate(ledger: SessionLedger) {
+    this.stars.clear();
+    for (const rec of ledger.stars.values()) {
+      const pos = this.place(rec.login);
+      if (!pos) continue;
+      this.stars.set(rec.login, {
+        x: pos.x,
+        y: pos.y,
+        name: rec.name,
+        born: rec.born,
+        last: rec.last,
+        bright: rec.bright,
+      });
+    }
+    this.recent = ledger.recent.filter((l) => this.stars.has(l)).slice(0, CONFIG.constellation);
+    if (this.chill) this.vibe.restore(ledger.vibe.dump());
   }
 
   private comet(name: string, ember: boolean) {
@@ -313,7 +339,6 @@ export class Scene {
           off: Math.random() * 16,
         });
       }
-      this.decayTimer = setInterval(() => this.vibe.decay(), 2000);
       this.showGuide();
     }
 
@@ -332,6 +357,8 @@ export class Scene {
     } catch {
       /* no BroadcastChannel — the bus still carries away commands */
     }
+
+    if (this.opts.session) this.hydrate(this.opts.session);
 
     // Arm the mode we booted in. `setVisible(true)` is exactly the right entry
     // point: it's the same path OBS takes when the source is shown, so a fresh
@@ -495,7 +522,6 @@ export class Scene {
     this.destroyed = true;
     if (this.raf !== null) cancelAnimationFrame(this.raf);
     this.raf = null;
-    if (this.decayTimer) clearInterval(this.decayTimer);
     if (this.guideTimer) clearTimeout(this.guideTimer);
     try {
       this.bc?.close();

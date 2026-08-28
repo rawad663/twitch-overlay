@@ -40,6 +40,10 @@ All URLs are from `https://rawad663.github.io/twitch-overlay/`.
    ```
    Opening that URL in Chrome will never connect — Chrome is a different browser and shares no storage with OBS.
 
+Chat energy, the constellation and chill vibe persist across HUD / chill / away — every source writes a shared snapshot, so switching scenes does not empty the sky. Showing an away source still starts a fresh timer. Keep **Shutdown source when not visible** off.
+
+If you use the HUD in more than one game scene (POE, LEAGUE, …), put the HUD browser source in its own scene and add that scene as a source in each game scene so you are not running two HUD copies.
+
 After a deploy, right-click each browser source → **Refresh cache of current page**. The dock's Diagnostics section tells you whether storage is shared and whether sources are answering.
 
 For phone or remote control, use the `!brb` / `!soon` / `!afk` / `!back` chat commands instead of the dock.
