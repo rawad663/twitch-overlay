@@ -88,4 +88,5 @@ export const DEFAULT_SETTINGS: Settings = {
   fullMoonMessages: CONFIG.fullMoonMessages,
   bigCheer: CONFIG.bigCheer,
   tallyDefs: DEFAULT_TALLY_DEFS,
+  afkReason: "",
 };

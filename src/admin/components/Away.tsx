@@ -33,12 +33,16 @@ export function Away({
   away,
   minutes,
   onMinutes,
+  reason,
+  onReason,
   send,
   disabled,
 }: {
   away: AwaySnapshot | null | undefined;
   minutes: number;
   onMinutes: (n: number) => void;
+  reason: string;
+  onReason: (reason: string) => void;
   send: (type: "away.brb" | "away.soon" | "away.afk" | "away.back" | "away.reset") => void;
   disabled: boolean;
 }) {
@@ -76,6 +80,18 @@ export function Away({
           Reset
         </Button>
       </div>
+      <label className={s.label} htmlFor="afkReason" style={{ marginTop: 10 }}>
+        AFK reason
+      </label>
+      <input
+        id="afkReason"
+        className={s.input}
+        placeholder="making lunch"
+        maxLength={48}
+        aria-label="AFK reason"
+        value={reason}
+        onChange={(e) => onReason(e.target.value)}
+      />
       <div className={s.row2} style={{ marginTop: 8 }}>
         <Button variant="ghost" onClick={() => send("away.afk")}>
           AFK

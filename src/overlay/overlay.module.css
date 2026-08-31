@@ -611,6 +611,9 @@
   font-weight: 600;
   margin-bottom: 14px;
   opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .scTitle {
   font-size: 92px;

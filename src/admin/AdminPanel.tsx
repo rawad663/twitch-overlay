@@ -67,6 +67,7 @@ export function AdminPanel() {
           milestoneSubs: next.milestoneSubs,
           showMilestones: next.showMilestones,
           tallyDefs: next.tallyDefs,
+          afkReason: next.afkReason,
         });
         return next;
       });
@@ -106,6 +107,8 @@ export function AdminPanel() {
           away={live?.away}
           minutes={minutes}
           onMinutes={setMinutes}
+          reason={settings.afkReason}
+          onReason={(afkReason) => patch({ afkReason })}
           send={away}
           disabled={!connected}
         />

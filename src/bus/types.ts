@@ -36,6 +36,8 @@ export type Settings = {
   fullMoonMessages: number;
   bigCheer: number;
   tallyDefs: TallyDef[];
+  /** Shown as the AFK kicker; empty keeps the default line. */
+  afkReason: string;
 };
 
 /**
