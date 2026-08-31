@@ -66,6 +66,7 @@ export function mergeSettings(current: Settings, patch: SettingsPatch | null | u
   }
   if (typeof patch.muted === "boolean") next.muted = patch.muted;
   if (typeof patch.showMilestones === "boolean") next.showMilestones = patch.showMilestones;
+  if (typeof patch.afkReason === "string") next.afkReason = patch.afkReason.trim().slice(0, 48);
   if (Array.isArray(patch.tallyDefs)) next.tallyDefs = normalizeTallyDefs(patch.tallyDefs);
 
   for (const k of POSITIVE_KEYS) {

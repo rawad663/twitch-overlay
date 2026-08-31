@@ -69,4 +69,18 @@ describe("mergeSettings", () => {
   it("is a no-op for a null patch", () => {
     expect(mergeSettings(DEFAULT_SETTINGS, null)).toBe(DEFAULT_SETTINGS);
   });
+
+  it("trims and clamps an AFK reason, and empty clears it", () => {
+    expect(mergeSettings(DEFAULT_SETTINGS, { afkReason: "  making lunch  " }).afkReason).toBe(
+      "making lunch",
+    );
+    expect(mergeSettings(DEFAULT_SETTINGS, { afkReason: "x".repeat(60) }).afkReason).toHaveLength(48);
+    const withReason = { ...DEFAULT_SETTINGS, afkReason: "a walk" };
+    expect(mergeSettings(withReason, { afkReason: "   " }).afkReason).toBe("");
+  });
+
+  it("ignores a non-string AFK reason", () => {
+    const bad = { afkReason: 12 } as never;
+    expect(mergeSettings(DEFAULT_SETTINGS, bad).afkReason).toBe("");
+  });
 });

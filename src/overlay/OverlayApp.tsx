@@ -94,6 +94,8 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   useEffect(() => {
     sound.configure(settings.volume, settings.muted);
   }, [sound, settings.volume, settings.muted]);
+  const afkReasonRef = useRef(settings.afkReason);
+  afkReasonRef.current = settings.afkReason;
 
   const [director] = useState(() => new Director((n) => sound.play(n)));
 
@@ -170,10 +172,15 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         },
       });
       sceneRef.current = sc;
+      sc.setAfkReason(afkReasonRef.current);
       sc.mount(el);
     },
     [chill, mode, demo, params.minutes, moon.beats, ledger],
   );
+
+  useEffect(() => {
+    sceneRef.current?.setAfkReason(settings.afkReason);
+  }, [settings.afkReason]);
 
   /* OBS hide/show. Showing a source is the one-click reset — it re-arms the
      countdown and replays the chill intro. Hidden sources keep running

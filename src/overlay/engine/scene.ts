@@ -44,6 +44,7 @@ export class Scene {
   vibe: Vibe;
   moonFull = false;
   guideOn = false;
+  afkReason = "";
 
   readonly chill: boolean;
   readonly demo: boolean;
@@ -278,6 +279,13 @@ export class Scene {
     this.share();
   }
 
+  setAfkReason(reason: string) {
+    const next = reason.trim();
+    if (next === this.afkReason) return;
+    this.afkReason = next;
+    this.pushStatus(true);
+  }
+
   back() {
     if (this.chill) return;
     this.state = "back";
@@ -494,7 +502,7 @@ export class Scene {
     if (this.state === "afk") {
       return {
         ...base,
-        kicker: "Away — the moon keeps watch",
+        kicker: this.afkReason || "Away — the moon keeps watch",
         title: "AFK",
         timer: fmt(now - this.since),
         sub: "Back when the sky says so",
