@@ -33,6 +33,7 @@ export type ChatDeps = {
     back: () => void;
   };
   fate: (user: string) => void;
+  fatePoe: (user: string) => void;
   say: (who: string, line: string) => void;
   testAlert: (kind: AlertKind, user: string) => void;
   tally: {
@@ -106,6 +107,7 @@ function handleChat(m: ChatMessage, deps: ChatDeps) {
      not for mods. They rely on `star()` having already placed the sender. */
 
   if (c === "fate") return deps.fate(m.user);
+  if (c === "fatepoe") return deps.fatePoe(m.user);
 
   if (c === "wave") {
     if (deps.chill && deps.cooldown("wave", m.login, CONFIG.waveCooldown)) {

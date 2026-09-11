@@ -70,7 +70,8 @@ Outside OBS the overlay auto-demos unless you pass `?live=1`. Saved dock setting
 
 | Command | Action |
 |---|---|
-| `!fate` | Oracle roll (per-viewer cooldown) |
+| `!fate` | Real-life oracle roll (per-viewer cooldown) |
+| `!fatepoe` | Path of Exile oracle roll (shares the !fate cooldown) |
 | `!1` / `!2` | Vote in an open poll |
 | `!wave` | **Chill only** — comet across the sky with your name |
 | `!heart` | **Chill only** — bloom your own star |
