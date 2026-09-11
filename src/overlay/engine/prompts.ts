@@ -33,6 +33,7 @@ export const CHILL_PROMPTS = [
   "Type <b>!moon</b> — help raise it",
   "Keep talking and the <b>moon rises</b>",
   "Type <b>!fate</b> — the moon still answers",
+  "Type <b>!fatepoe</b> — Wraeclast still talks",
   "The constellation is built from <b>whoever's talking</b>",
 ];
 
@@ -41,6 +42,7 @@ export const CHILL_COMMANDS = [
   { c: "!heart", d: "Bloom your own star" },
   { c: "!moon", d: "Help raise the moon" },
   { c: "!fate", d: "Ask the moon a question" },
+  { c: "!fatepoe", d: "Ask the moon about Wraeclast" },
 ];
 
 export function promptsFor(mode: string, chill: boolean) {

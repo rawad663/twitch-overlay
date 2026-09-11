@@ -17,7 +17,7 @@ import { useCooldowns } from "./hooks/useCooldowns";
 
 import { Director, type AlertEvent } from "./director/director";
 import { Alerts } from "./director/alerts";
-import { FATES, pick, esc } from "./director/copy";
+import { FATES, FATES_POE, pick, esc } from "./director/copy";
 import { Sound } from "./audio/sound";
 import { Scene } from "./engine/scene";
 import {
@@ -223,13 +223,15 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     [director],
   );
 
-  const fate = useCallback(
-    (user: string) => {
+  const rollFate = useCallback(
+    (user: string, lines: readonly string[]) => {
       if (!cooldown("fate", user, CONFIG.fateCooldown)) return;
-      say(`The moon answers ${user} —`, pick(FATES));
+      say(`The moon answers ${user} —`, pick(lines));
     },
     [cooldown, say],
   );
+  const fate = useCallback((user: string) => rollFate(user, FATES), [rollFate]);
+  const fatePoe = useCallback((user: string) => rollFate(user, FATES_POE), [rollFate]);
 
   const testAlert = useCallback(
     (kind: AlertKind, who: string) => {
@@ -309,6 +311,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         back: () => sceneRef.current?.back(),
       },
       fate,
+      fatePoe,
       say,
       testAlert,
       tally: { resolve: tallies.resolve, bump: tallies.bump, set: tallies.set },
@@ -327,7 +330,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       moonHeadroom: () =>
         Math.max(0, CONFIG.fullMoonMessages - moon.beats.current.length - 1),
     }),
-    [chill, ping, ledger, scheduleSave, alerts, fate, say, testAlert, tallies, poll, cooldown, moon],
+    [chill, ping, ledger, scheduleSave, alerts, fate, fatePoe, say, testAlert, tallies, poll, cooldown, moon],
   );
 
   // The IRC socket outlives any single render, so it reaches the current

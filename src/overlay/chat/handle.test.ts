@@ -27,6 +27,7 @@ function makeDeps(over: Partial<ChatDeps> = {}): ChatDeps {
       back: vi.fn(),
     },
     fate: vi.fn(),
+    fatePoe: vi.fn(),
     say: vi.fn(),
     testAlert: vi.fn(),
     tally: {
@@ -86,6 +87,14 @@ describe("handle — open to everyone", () => {
     const d = makeDeps();
     handle(chat("!fate"), d);
     expect(d.fate).toHaveBeenCalledWith("wick");
+    expect(d.fatePoe).not.toHaveBeenCalled();
+  });
+
+  it("lets a non-mod roll !fatepoe", () => {
+    const d = makeDeps();
+    handle(chat("!fatepoe"), d);
+    expect(d.fatePoe).toHaveBeenCalledWith("wick");
+    expect(d.fate).not.toHaveBeenCalled();
   });
 
   it("lets a NON-MOD use the chill commands", () => {

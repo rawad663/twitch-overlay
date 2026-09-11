@@ -12,7 +12,7 @@ export const CONFIG = {
 
   /** messages in a 60s window that count as a full moon */
   fullMoonMessages: 25,
-  /** seconds a viewer must wait between !fate rolls */
+  /** seconds a viewer must wait between !fate / !fatepoe rolls */
   fateCooldown: 120,
   pollSeconds: 60,
 
