@@ -76,6 +76,7 @@ Outside OBS the overlay auto-demos unless you pass `?live=1`. Saved dock setting
 | `!wave` | **Chill only** — comet across the sky with your name |
 | `!heart` | **Chill only** — bloom your own star |
 | `!moon` | **Chill only** — nudge the chat-energy ring |
+| `!clip` | **Away / lounge only** — play the least-shown clip from the dock library |
 
 **Mod / broadcaster**
 
@@ -89,6 +90,14 @@ Outside OBS the overlay auto-demos unless you pass `?live=1`. Saved dock setting
 | `!say <text>` | Oracle banner |
 | `!testalert [kind]` | Fake alert (`follow`, `welcome`, `sub`, `raid`, `burst`, …) |
 | `!brb [minutes]` / `!soon [minutes]` / `!afk` / `!back` | Away state |
+
+## Clips
+
+The dock's **Clips** section holds a rotation of Twitch clip links. Chat types `!clip` on the AFK / BRB / starting-soon or lounge source to play the one shown least often, as a picture-in-picture card over the moon. The HUD never plays a clip, so Path of Exile gameplay is left alone.
+
+Limits (in `CONFIG`): 2 minutes between any two clips, 15 minutes per viewer (mods skip that one), 8 per rolling hour. `!clip` is ignored while a clip is already up, while a banner or poll is showing, when the library is empty, or when the dock rotation switch is off. The away / lounge prompt only mentions `!clip` when something is actually in rotation.
+
+Paste `clips.twitch.tv/…`, `twitch.tv/<chan>/clip/…`, or a bare slug. The HUD (the source with the token) fills in title and duration over the bus so the card knows when to leave.
 
 ## Tallies
 

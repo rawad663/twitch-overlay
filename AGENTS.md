@@ -20,6 +20,7 @@ src/
     director/           director.ts · tiers.ts · copy.ts · alerts.ts
     chat/               irc.ts · parse.ts · handle.ts
     twitch/             helix.ts · eventsub.ts · milestones.ts
+    clips/              library.ts · select.ts · useClips.ts
     audio/sound.ts      Web Audio synthesis, no files
     hooks/ components/  OverlayApp.tsx wires it all together
   admin/                hooks/ + components/, AdminPanel.tsx
@@ -28,7 +29,7 @@ scripts/                verify · compare · diff-shots (Playwright)
 
 ## Hard rules
 
-- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-1"`) only when that contract actually changes.
+- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-2"`) only when that contract actually changes.
 - **The panel must not set `Bus.role`.** Sources set it and auto-ack; if the panel set one it would ack itself and delivery confirmation would be a lie.
 - **Never put tokens or secrets in the repo.** The token is a URL query on the OBS source (`?token=` + `?client_id=`). `CONFIG.clientId` is the public app id only. Scopes: `moderator:read:followers` (follow alerts), `channel:read:subscriptions` (sub milestone). Follower totals work with any valid token.
 - **Ember is gains only** — subs, gifts, raids, big cheers, completed goals. Follows stay violet. Reach it through `--accent-gain`, never `--ember` directly. `vibe.test.ts` enforces it for the mood palettes.
@@ -48,7 +49,7 @@ admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay 
 
 - **Mode** — `useOverlayParams()` reads `window.location.search` through `useSyncExternalStore` after mount, not `useSearchParams`: every param is client-only and this keeps the static export free of a prerender bailout. It returns null until mounted, which doubles as "don't open sockets yet".
 - **IRC** reconnects every 4s. Follows are the one event it will not send; without a token that block no-ops.
-- **`handle()`** takes a `ChatDeps` object rather than importing modules. That is deliberate: the single-file version had `Moon → Director → Milestones → Moon` forward references that would be a circular import here. **The mod gate ordering is load-bearing** — `!fate`, `!fatepoe`, `!wave`, `!heart`, `!moon`, `!1`, `!2` sit *above* `if (!m.mod) return`.
+- **`handle()`** takes a `ChatDeps` object rather than importing modules. That is deliberate: the single-file version had `Moon → Director → Milestones → Moon` forward references that would be a circular import here. **The mod gate ordering is load-bearing** — `!fate`, `!fatepoe`, `!wave`, `!heart`, `!moon`, `!clip`, `!1`, `!2` sit *above* `if (!m.mod) return`.
 - **Director** — one serial banner queue. Priority raid 50 > massgift 45 > sub/gift 40 > bigcheer 35 > cheer 20 > follow 15 > welcome 12 > system 10, FIFO within a tier. Over `queueCap` the lowest is shed, except sub/gift/massgift/raid which are never shed. React subscribes to the current banner only; the `key` on the banner element restarts the unfurl animation (the old code forced a reflow).
 - **Alerts** — merges Twitch's noise: queued follows collapse into one banner, a `submysterygift` suppresses its per-recipient `subgift`s for 15s, and repeat cheers from one user coalesce for 6s.
 - **Milestones** — HUD lifetime totals vs dock targets. Scene sources don't poll. A 401 on subs while follows still works is read as a missing scope, not an expired token. Away-scene `goalFollows` / `goalSubs` / `goalMessages` stay session gains.
@@ -68,16 +69,18 @@ The moon's timestamp array is the one piece of shared mutable state. `useMoon` t
 | `rawad-control-msg` | Bus | Last bus message |
 | `rawad-presence` | overlay, every 2s, **not** via Bus | Dock diagnostics: storage shared vs messaging dead |
 | `rawad-tally` | HUD | `{ [key]: count }` |
-| `rawad-settings` | overlay, on panel `settings` | Volume, mute, away goals, milestone targets, `tallyDefs` |
+| `rawad-settings` | overlay, on panel `settings` | Volume, mute, away goals, milestone targets, `tallyDefs`, `clipsEnabled` |
 | `rawad-clientid` | OAuth helper + dock | Remembered public client id |
+| `rawad-clips` | dock (sources persist a copy) | Clip rotation library |
+| `rawad-clip-plays` | overlay | `{ [slug]: { count, lastAt } }` |
 
 Every access goes through `src/bus/storage.ts` — OBS can block storage outright and a throw must never take a render down.
 
 ### Bus types
 
-Panel → sources: `away.brb|soon|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `ping`.
+Panel → sources: `away.brb|soon|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `clips`, `clip.play|stop|resolve`, `ping`.
 
-Sources → panel: `hello` (2s heartbeat, plus HUD-only `totals`), `ack` `{ forId, forType, role }`.
+Sources → panel: `hello` (2s heartbeat, plus HUD-only `totals` and `clip` / `clipPlays`), `ack` `{ forId, forType, role }`, `clip.meta`.
 
 Every source receives every command on purpose (HUD banner + scene shooting star stay in step). Inapplicable handlers no-op.
 
@@ -91,11 +94,11 @@ Tokens in `src/design/tokens.css`: `--violet #7A2FF2`, `--deep #3D0F8A`, `--rune
 
 HUD must stay out of PoE's UI; the away scene must stay out of the HUD's lanes (it is layered underneath in OBS):
 
-- strip `x520 y16 520×76` · goals `x520 y100 520×50` · rail `x26 y132 56×680` · notice `x26 y96` · banner `x470 y620 560×202`
+- strip `x520 y16 520×76` · goals `x520 y100 520×50` · rail `x26 y132 56×680` · notice `x26 y96` · banner `x470 y620 560×202` · clip pip `x1040 y220 640×360` (over the moon; scene sources only)
 
 Chill has no HUD over it, so it uses its own set (`CONFIG.camera` drives the first):
 
-- title stack `x80 y60 620×216` · camera `x80 y300 620×620` (the **circle inscribed** in that square: cx390 cy610 r310) · banner `x860 y690 700×160` · guide/prompt `x760 y856 1100×174` · moon `cx1420 cy360 r190`
+- title stack `x80 y60 620×216` · camera `x80 y300 620×620` (the **circle inscribed** in that square: cx390 cy610 r310) · banner `x860 y690 700×160` · guide/prompt `x760 y856 1100×174` · moon `cx1420 cy360 r190` · clip pip `x1100 y180 640×360`
 
 `?guide=1` draws them (`?mode=chill&guide=1` for the chill set).
 

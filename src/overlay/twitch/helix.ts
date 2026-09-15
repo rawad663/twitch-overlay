@@ -30,6 +30,43 @@ export async function fetchTotal(auth: Auth, path: string): Promise<TotalResult>
   }
 }
 
+export type ClipMeta = {
+  slug: string;
+  title: string;
+  creator: string;
+  duration: number;
+  thumb: string;
+};
+
+/** Look up a clip by slug so the card knows how long to stay up. */
+export async function fetchClip(auth: Auth, slug: string): Promise<ClipMeta | null> {
+  try {
+    const r = await helix(auth, "clips?id=" + encodeURIComponent(slug));
+    if (!r.ok) return null;
+    const j = (await r.json()) as {
+      data?: Array<{
+        id?: string;
+        title?: string;
+        creator_name?: string;
+        duration?: number;
+        thumbnail_url?: string;
+      }>;
+    };
+    const c = j.data?.[0];
+    if (!c) return null;
+    const duration = Number(c.duration);
+    return {
+      slug: c.id ?? slug,
+      title: String(c.title ?? slug).trim().slice(0, 80) || slug,
+      creator: String(c.creator_name ?? "").trim().slice(0, 32),
+      duration: Number.isFinite(duration) && duration > 0 ? Math.max(1, Math.round(duration)) : 30,
+      thumb: String(c.thumbnail_url ?? ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve the channel login to a user id, which every other call needs. */
 export async function resolveUserId(auth: Auth, login: string): Promise<string | null> {
   try {

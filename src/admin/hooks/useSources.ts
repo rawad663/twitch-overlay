@@ -30,6 +30,14 @@ function pickAwaySource(sources: readonly Source[]): Source | undefined {
   return newest(active.length ? active : scenes);
 }
 
+/** Any scene can play a clip — chill included. Prefer the one that's mid-play. */
+function pickClipSource(sources: readonly Source[]): Source | undefined {
+  const scenes = sources.filter((s) => s.role === "scene");
+  if (!scenes.length) return undefined;
+  const playing = scenes.filter((s) => s.clip);
+  return newest(playing.length ? playing : scenes);
+}
+
 function sameLive(a: HelloPayload | null, b: HelloPayload | null) {
   if (a === b) return true;
   if (!a || !b) return false;
@@ -46,7 +54,9 @@ function sameLive(a: HelloPayload | null, b: HelloPayload | null) {
     a.demo === b.demo &&
     a.build === b.build &&
     a.role === b.role &&
-    a.mode === b.mode
+    a.mode === b.mode &&
+    a.clip === b.clip &&
+    a.clipPlays === b.clipPlays
   );
 }
 
@@ -68,6 +78,7 @@ export function composeLive(sources: readonly Source[]): HelloPayload | null {
 
   const hud = sources.find((s) => s.role === "hud");
   const awaySrc = pickAwaySource(sources);
+  const clipSrc = pickClipSource(sources);
   const base = hud ?? newest(sources);
   const { at: _at, ...payload } = base;
 
@@ -75,6 +86,8 @@ export function composeLive(sources: readonly Source[]): HelloPayload | null {
     ...payload,
     away: awaySrc?.away ?? payload.away,
     totals: hud?.totals ?? payload.totals,
+    clip: clipSrc?.clip ?? payload.clip ?? null,
+    clipPlays: clipSrc?.clipPlays ?? payload.clipPlays ?? {},
   };
 }
 

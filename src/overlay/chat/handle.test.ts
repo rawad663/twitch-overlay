@@ -43,6 +43,7 @@ function makeDeps(over: Partial<ChatDeps> = {}): ChatDeps {
     },
     cooldown: () => true,
     moonHeadroom: () => 99,
+    clip: vi.fn(),
     ...over,
   };
 }
@@ -122,6 +123,18 @@ describe("handle — open to everyone", () => {
     const d = makeDeps({ chill: true, cooldown: () => false });
     handle(chat("!wave"), d);
     expect(d.scene.wave).not.toHaveBeenCalled();
+  });
+
+  it("lets a non-mod request !clip", () => {
+    const d = makeDeps();
+    handle(chat("!clip"), d);
+    expect(d.clip).toHaveBeenCalledWith("wick", "wick", false);
+  });
+
+  it("tells !clip when the sender is a mod", () => {
+    const d = makeDeps();
+    handle(chat("!clip", { mod: true }), d);
+    expect(d.clip).toHaveBeenCalledWith("wick", "wick", true);
   });
 
   it("counts a poll vote once per login", () => {

@@ -12,9 +12,11 @@ export const PRESENCE_KEY = "rawad-presence";
 export const SETTINGS_KEY = "rawad-settings";
 export const TALLY_KEY = "rawad-tally";
 export const CLIENT_ID_KEY = "rawad-clientid";
+export const CLIPS_KEY = "rawad-clips";
+export const CLIP_PLAYS_KEY = "rawad-clip-plays";
 
 /** Bumped only when the send/deliver contract changes. Shown in diagnostics. */
-export const BUILD = "bus-1";
+export const BUILD = "bus-2";
 
 export type BusRole = "hud" | "scene";
 
@@ -38,7 +40,30 @@ export type Settings = {
   tallyDefs: TallyDef[];
   /** Shown as the AFK kicker; empty keeps the default line. */
   afkReason: string;
+  /** Dock kill switch for !clip. Library stays put. */
+  clipsEnabled: boolean;
 };
+
+/** A Twitch clip the dock has added to the rotation. */
+export type ClipEntry = {
+  slug: string;
+  title: string;
+  creator: string;
+  duration: number;
+  thumb: string;
+  enabled: boolean;
+  addedAt: number;
+  /** True until Helix fills title / duration. Playable with a 30s default. */
+  unresolved?: boolean;
+};
+
+export type ClipLibrary = { v: 1; clips: ClipEntry[] };
+
+export type ClipPlayRecord = { count: number; lastAt: number };
+
+export type ClipPlays = Record<string, ClipPlayRecord>;
+
+export type ClipSnapshot = { slug: string; until: number } | null;
 
 /**
  * The panel deliberately sends a PARTIAL settings object — it has no UI for
@@ -85,6 +110,8 @@ export type HelloPayload = {
   settings: Settings;
   /** Scene sources don't poll Helix, so they report no totals at all. */
   totals?: Totals;
+  clipPlays: Record<string, number>;
+  clip: ClipSnapshot;
 };
 
 export type AckPayload = { forId: string; forType: string; role?: BusRole };
@@ -119,6 +146,17 @@ export type BusPayloads = {
   "oracle.say": { line: string; who?: string };
   "oracle.fate": { user?: string };
   settings: SettingsPatch;
+  clips: { clips: ClipEntry[] };
+  "clip.play": { slug?: string };
+  "clip.stop": Record<string, never>;
+  "clip.resolve": { slug: string };
+  "clip.meta": {
+    slug: string;
+    title: string;
+    creator: string;
+    duration: number;
+    thumb: string;
+  };
   ping: Record<string, never>;
   hello: HelloPayload;
   ack: AckPayload;

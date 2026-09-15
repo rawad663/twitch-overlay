@@ -17,6 +17,7 @@ import { Alerts } from "./components/Alerts";
 import { SoundGoals } from "./components/SoundGoals";
 import { Milestones } from "./components/Milestones";
 import { Diagnostics } from "./components/Diagnostics";
+import { Clips } from "./components/Clips";
 
 export function AdminPanel() {
   // no role — the panel must never ack, or delivery confirmation is a lie
@@ -68,6 +69,7 @@ export function AdminPanel() {
           showMilestones: next.showMilestones,
           tallyDefs: next.tallyDefs,
           afkReason: next.afkReason,
+          clipsEnabled: next.clipsEnabled,
         });
         return next;
       });
@@ -126,6 +128,16 @@ export function AdminPanel() {
           poll={live?.poll}
           onOpen={(text, a, b) => send("poll.open", { text, a, b }, "Open poll")}
           onClose={() => send("poll.close", {}, "End poll")}
+          disabled={!connected}
+        />
+
+        <Clips
+          enabled={settings.clipsEnabled}
+          onEnabled={(clipsEnabled) => patch({ clipsEnabled })}
+          plays={live?.clipPlays}
+          clip={live?.clip}
+          bus={bus}
+          send={send}
           disabled={!connected}
         />
 

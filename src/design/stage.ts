@@ -51,6 +51,15 @@ export const CHILL_ZONES: readonly Zone[] = [
   { label: "guide · prompt", rect: [760, 856, 1100, 174] },
 ];
 
+/**
+ * Picture-in-picture card, centred on the moon. 640×360 so a 16:9 clip sits
+ * inside the moon's glow without covering the title stack, camera, or HUD.
+ */
+export const CLIP_PIP = {
+  away: [1040, 220, 640, 360] as Rect,
+  chill: [1100, 180, 640, 360] as Rect,
+} as const;
+
 /** The moon, which differs between the away scene and chill. */
 export const MOON = {
   away: { x: 1360, y: 400, r: 200 },
@@ -74,8 +83,8 @@ export function cameraCircle(camera: readonly [number, number, number, number]) 
 /** Blocked rects a star may not be placed inside, per mode. */
 export function keepOut(chill: boolean): readonly Rect[] {
   return chill
-    ? CHILL_ZONES.map((z) => z.rect)
-    : [HUD_LANES.strip, HUD_LANES.goals, HUD_LANES.rail, HUD_LANES.notice, HUD_LANES.banner];
+    ? [...CHILL_ZONES.map((z) => z.rect), CLIP_PIP.chill]
+    : [HUD_LANES.strip, HUD_LANES.goals, HUD_LANES.rail, HUD_LANES.notice, HUD_LANES.banner, CLIP_PIP.away];
 }
 
 /** Scale factor + horizontal centring for the fixed stage in a given viewport. */

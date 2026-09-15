@@ -83,4 +83,11 @@ describe("mergeSettings", () => {
     const bad = { afkReason: 12 } as never;
     expect(mergeSettings(DEFAULT_SETTINGS, bad).afkReason).toBe("");
   });
+
+  it("takes a boolean clipsEnabled without touching the rest", () => {
+    const next = mergeSettings(DEFAULT_SETTINGS, { clipsEnabled: false, volume: 0.3 });
+    expect(next.clipsEnabled).toBe(false);
+    expect(next.volume).toBe(0.3);
+    expect(next.afkReason).toBe("");
+  });
 });

@@ -55,6 +55,16 @@ export const CONFIG = {
 
   waveCooldown: 45,
   moonCooldown: 180,
+  /** seconds between any two !clip plays */
+  clipCooldown: 120,
+  /** seconds one viewer must wait between !clip requests; mods skip this */
+  clipUserCooldown: 900,
+  /** rolling hour cap across the whole chat */
+  clipHourlyCap: 8,
+  /** hide-timer ceiling so a bad Helix duration can't strand the card */
+  clipMaxSeconds: 60,
+  /** extra seconds after the clip's duration before the card leaves */
+  clipPadSeconds: 1,
   /** messages-worth of energy one !moon is worth */
   moonNudge: 3,
   /** how long the full command list leads before collapsing to one line */
@@ -89,4 +99,5 @@ export const DEFAULT_SETTINGS: Settings = {
   bigCheer: CONFIG.bigCheer,
   tallyDefs: DEFAULT_TALLY_DEFS,
   afkReason: "",
+  clipsEnabled: true,
 };

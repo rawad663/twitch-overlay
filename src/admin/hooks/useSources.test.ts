@@ -31,7 +31,7 @@ const BRB: AwaySnapshot = {
 function hello(partial: Partial<HelloPayload> & Pick<HelloPayload, "role" | "mode">): HelloPayload {
   return {
     demo: false,
-    build: "bus-1",
+    build: "bus-2",
     irc: "live",
     eventsub: "off",
     token: false,
@@ -40,6 +40,8 @@ function hello(partial: Partial<HelloPayload> & Pick<HelloPayload, "role" | "mod
     tally: {},
     poll: { open: false },
     settings: DEFAULT_SETTINGS,
+    clipPlays: {},
+    clip: null,
     ...partial,
   };
 }
@@ -97,6 +99,16 @@ describe("composeLive", () => {
       src({ role: "scene", mode: "brb", away: BRB }, 1000),
     ]);
     expect(live?.away).toEqual(BRB);
+  });
+
+  it("prefers the scene that is mid-clip over a newer idle hello", () => {
+    const playing = { slug: "HelpfulEntertainingOrcaPogChamp", until: 9 };
+    const live = composeLive([
+      src({ role: "scene", mode: "chill", clip: playing, clipPlays: { a: 3 } }, 1000),
+      src({ role: "hud", mode: "hud", totals: TOTALS, clip: null, clipPlays: {} }, 2000),
+    ]);
+    expect(live?.clip).toEqual(playing);
+    expect(live?.clipPlays).toEqual({ a: 3 });
   });
 
   it("falls back to the HUD once the away scene has gone", () => {

@@ -2,12 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SceneStatus } from "../engine/types";
-import { CHILL_COMMANDS, promptsFor } from "../engine/prompts";
+import { commandsFor, promptsFor } from "../engine/prompts";
 import s from "../overlay.module.css";
 
 /** The rotating prompt, crossfaded so nothing ever pops. */
-function Prompt({ mode, chill, hushed }: { mode: string; chill: boolean; hushed: boolean }) {
-  const prompts = promptsFor(mode, chill);
+function Prompt({
+  mode,
+  chill,
+  hushed,
+  clipsOn,
+}: {
+  mode: string;
+  chill: boolean;
+  hushed: boolean;
+  clipsOn: boolean;
+}) {
+  const prompts = promptsFor(mode, chill, clipsOn);
   const [i, setI] = useState(0);
   const [out, setOut] = useState(false);
 
@@ -27,7 +37,7 @@ function Prompt({ mode, chill, hushed }: { mode: string; chill: boolean; hushed:
       <div className={s.scPromptLabel}>While you wait</div>
       <div
         className={`${s.scPromptText} ${out ? s.out : ""}`}
-        dangerouslySetInnerHTML={{ __html: prompts[i] ?? "" }}
+        dangerouslySetInnerHTML={{ __html: prompts[i % prompts.length] ?? "" }}
       />
     </div>
   );
@@ -43,12 +53,16 @@ export function SceneLayer({
   mode,
   chill,
   guideOn,
+  clipsOn,
+  clipPlaying,
   onCanvas,
 }: {
   status: SceneStatus;
   mode: string;
   chill: boolean;
   guideOn: boolean;
+  clipsOn: boolean;
+  clipPlaying: boolean;
   onCanvas: (el: HTMLCanvasElement | null) => void;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
@@ -91,13 +105,13 @@ export function SceneLayer({
           </>
         )}
 
-        <Prompt mode={mode} chill={chill} hushed={chill && guideOn} />
+        <Prompt mode={mode} chill={chill} hushed={(chill && guideOn) || clipPlaying} clipsOn={clipsOn} />
 
         {chill && (
           <div className={`${s.scGuide} ${guideOn ? s.on : ""}`}>
             <div className={s.scGuideLabel}>Chat commands</div>
             <div className={s.scGuideList}>
-              {CHILL_COMMANDS.map((c) => (
+              {commandsFor(clipsOn).map((c) => (
                 <div key={c.c} className={s.cmd}>
                   <span className={s.c}>{c.c}</span>
                   <span className={s.d}>{c.d}</span>

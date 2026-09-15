@@ -1,6 +1,6 @@
 "use client";
 
-import { CHILL_ZONES, POE_ZONES, type Zone } from "@/design/stage";
+import { CHILL_ZONES, CLIP_PIP, POE_ZONES, type Zone } from "@/design/stage";
 import s from "../overlay.module.css";
 
 /**
@@ -8,8 +8,11 @@ import s from "../overlay.module.css";
  * the HUD lanes use. Size the OBS camera source against the chill set once,
  * then drop the param.
  */
-export function Zones({ chill }: { chill: boolean }) {
-  const zones: readonly Zone[] = chill ? CHILL_ZONES : POE_ZONES;
+export function Zones({ chill, scene }: { chill: boolean; scene: boolean }) {
+  const zones: Zone[] = [...(chill ? CHILL_ZONES : POE_ZONES)];
+  if (scene) {
+    zones.push({ label: "clip pip", rect: chill ? CLIP_PIP.chill : CLIP_PIP.away });
+  }
   return (
     <>
       {zones.map((z) => (

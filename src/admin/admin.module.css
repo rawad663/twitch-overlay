@@ -326,6 +326,59 @@
   padding: 6px 9px;
 }
 
+/* ── clip library ── */
+.clipRow {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.clipRow:last-child {
+  border-bottom: none;
+}
+.clipThumb {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 40px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 2px;
+}
+.clipInfo {
+  flex: 1;
+  min-width: 0;
+}
+.clipTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.clipMeta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--dim);
+}
+.clipTools {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+.clipToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* ── toast ── */
 .toast {
   position: fixed;

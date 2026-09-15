@@ -54,6 +54,8 @@ export type ChatDeps = {
   cooldown: (name: string, login: string, seconds: number) => boolean;
   /** how much room is left before a full moon, so !moon can't complete one */
   moonHeadroom: () => number;
+  /** play the least-shown clip; gates live in the hook, not here */
+  clip: (user: string, login: string, isMod: boolean) => void;
 };
 
 export function handleNotice(m: NoticeMessage, deps: ChatDeps) {
@@ -134,6 +136,8 @@ function handleChat(m: ChatMessage, deps: ChatDeps) {
     if (deps.poll.isOpen()) deps.poll.vote(m.login, c === "1" ? "a" : "b");
     return;
   }
+
+  if (c === "clip") return deps.clip(m.user, m.login, m.mod);
 
   /* ── mod / broadcaster only ── */
   if (!m.mod) return;

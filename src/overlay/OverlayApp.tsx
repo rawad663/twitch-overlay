@@ -40,7 +40,10 @@ import { Poll } from "./components/Poll";
 import { Oracle } from "./components/Oracle";
 import { Zones } from "./components/Zones";
 import { SceneLayer } from "./components/SceneLayer";
+import { ClipPlayer } from "./components/ClipPlayer";
 import { OAuthHelper } from "./components/OAuthHelper";
+import { useClips } from "./clips/useClips";
+import { fetchClip } from "./twitch/helix";
 import s from "./overlay.module.css";
 
 /** Shown for the frame or two before the engine emits its first snapshot. */
@@ -75,6 +78,16 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   const poll = usePoll();
   const tallies = useTallies(settings.tallyDefs);
   const { cooldown, clear: clearCooldown } = useCooldowns();
+  const [sceneVisible, setSceneVisible] = useState(true);
+
+  const clips = useClips({
+    scene,
+    visible: sceneVisible,
+    bannerActive: !!banner,
+    pollOpen: !!poll.poll,
+    clipsEnabled: settings.clipsEnabled,
+    cooldown,
+  });
 
   /* ── settings: URL params seed, saved settings win ── */
   useEffect(() => {
@@ -190,12 +203,14 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     const onVis = (e: Event) => {
       const detail = (e as CustomEvent<{ visible?: boolean }>).detail;
       const visible = detail ? detail.visible !== false : true;
+      setSceneVisible(visible);
       if (!visible) flushSession();
       sceneRef.current?.setVisible(visible);
     };
     window.addEventListener("obsSourceVisibleChanged", onVis);
     if (window.obsstudio) {
       window.obsstudio.onVisibilityChange = (v: boolean) => {
+        setSceneVisible(!!v);
         if (!v) flushSession();
         sceneRef.current?.setVisible(!!v);
       };
@@ -329,8 +344,9 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       cooldown,
       moonHeadroom: () =>
         Math.max(0, CONFIG.fullMoonMessages - moon.beats.current.length - 1),
+      clip: clips.request,
     }),
-    [chill, ping, ledger, scheduleSave, alerts, fate, fatePoe, say, testAlert, tallies, poll, cooldown, moon],
+    [chill, ping, ledger, scheduleSave, alerts, fate, fatePoe, say, testAlert, tallies, poll, cooldown, moon, clips.request],
   );
 
   // The IRC socket outlives any single render, so it reaches the current
@@ -417,9 +433,18 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
           return next;
         });
       }),
+      bus.on("clips", (p) => clips.replace(p.clips)),
+      bus.on("clip.play", (p) => clips.playNow(p.slug, "the panel")),
+      bus.on("clip.stop", () => clips.stop()),
+      bus.on("clip.resolve", (p) => {
+        if (!params.token || !params.clientId || !p.slug) return;
+        void fetchClip({ token: params.token, clientId: params.clientId }, p.slug).then((meta) => {
+          if (meta) bus.send("clip.meta", meta);
+        });
+      }),
     ];
     return () => off.forEach((fn) => fn());
-  }, [bus, tallies, poll, testAlert, say, fate, clearCooldown]);
+  }, [bus, tallies, poll, testAlert, say, fate, clearCooldown, clips.replace, clips.playNow, clips.stop, params.token, params.clientId]);
 
   /* ── bus: status out ── */
   const hello = useCallback(() => {
@@ -448,9 +473,11 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         : { open: false },
       settings,
       totals: scene ? undefined : totals,
+      clipPlays: clips.clipPlays,
+      clip: clips.snapshot,
     };
     bus.send("hello", payload);
-  }, [bus, scene, mode, demo, ircStatus, esStatus, params, chill, t0, tallies.counts, poll.poll, settings, totals]);
+  }, [bus, scene, mode, demo, ircStatus, esStatus, params, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot]);
 
   useEffect(() => {
     if (!bus) return;
@@ -498,7 +525,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   return (
     <div className={rootClass}>
       <div className={s.stage} style={stageStyle}>
-        {guide && <Zones chill={chill} />}
+        {guide && <Zones chill={chill} scene={scene} />}
 
         {/* The HUD belongs to its own source. In scene mode it simply isn't
             mounted — the away scene is layered UNDER the HUD in OBS, so
@@ -521,9 +548,13 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
             mode={mode}
             chill={chill}
             guideOn={guideOn}
+            clipsOn={clips.clipsOn}
+            clipPlaying={!!clips.playing}
             onCanvas={onCanvas}
           />
         )}
+
+        {scene && <ClipPlayer key={clips.playing?.startedAt ?? "idle"} clip={clips.playing} chill={chill} />}
 
         {/* Chill has no HUD layered over it, so the banner comes back here —
             moved right to clear the camera frame. */}
