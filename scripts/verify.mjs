@@ -180,7 +180,8 @@ async function main() {
     await page.goto(url("?mode=chill&guide=1&demo=1"), { waitUntil: "networkidle" });
     await page.waitForTimeout(1200);
     const zones = await page.$$('[class*="zone"]');
-    check("?guide=1 draws the chill keep-out boxes", zones.length === 4, `${zones.length} boxes`);
+    // 4 CHILL_ZONES + clip pip — chill is a scene, so Zones.tsx appends the pip
+    check("?guide=1 draws the chill keep-out boxes", zones.length === 5, `${zones.length} boxes`);
     await page.close();
   }
 
