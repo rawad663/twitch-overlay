@@ -592,6 +592,14 @@
   width: 1920px;
   height: 1080px;
 }
+.balloons {
+  position: absolute;
+  inset: 0;
+  width: 1920px;
+  height: 1080px;
+  pointer-events: none;
+  z-index: 8; /* above sky/HUD, below OAuth helper z-index 9999 */
+}
 .layer {
   position: absolute;
   inset: 0;

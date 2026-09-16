@@ -5,6 +5,7 @@
 
 export const AWAY_PROMPTS = [
   "Type <b>!fate</b> — the moon still answers",
+  "Send an <b>emoji</b> — it floats up like a balloon",
   "Type <b>!clip</b> — the moon still has highlights",
   "Every chatter becomes a <b>star</b> up there",
   "Keep talking and the <b>moon rises</b>",
@@ -15,6 +16,7 @@ export const AWAY_PROMPTS = [
 
 export const SOON_PROMPTS = [
   "Type <b>!fate</b> — the moon answers before we even start",
+  "Send an <b>emoji</b> — it floats up like a balloon",
   "Type <b>!clip</b> — warm up with a highlight",
   "Every chatter becomes a <b>star</b> up there",
   "Follow now and your name is already in the <b>sky</b>",
@@ -29,6 +31,7 @@ export const SOON_PROMPTS = [
  */
 export const CHILL_PROMPTS = [
   "Type <b>!wave</b> — send a comet across the sky",
+  "Send an <b>emoji</b> — it floats up like a balloon",
   "Every chatter becomes a <b>star</b> up there",
   "Type <b>!heart</b> — find your own star and bloom it",
   "Type <b>!clip</b> — pull a highlight over the moon",

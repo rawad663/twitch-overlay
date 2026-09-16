@@ -16,9 +16,9 @@ src/
   design/               tokens.css · stage.ts (all geometry)
   config/               config.ts (CONFIG) · settings.ts · routes.ts
   overlay/
-    engine/             scene.ts · vibe.ts · draw.ts · prompts.ts   ← no React in here
+    engine/             scene.ts · vibe.ts · draw.ts · prompts.ts · balloons.ts   ← no React in here
     director/           director.ts · tiers.ts · copy.ts · alerts.ts
-    chat/               irc.ts · parse.ts · handle.ts
+    chat/               irc.ts · parse.ts · handle.ts · emotes.ts
     twitch/             helix.ts · eventsub.ts · milestones.ts
     clips/              library.ts · select.ts · useClips.ts
     audio/sound.ts      Web Audio synthesis, no files
@@ -33,7 +33,7 @@ scripts/                verify · compare · diff-shots (Playwright)
 - **The panel must not set `Bus.role`.** Sources set it and auto-ack; if the panel set one it would ack itself and delivery confirmation would be a lie.
 - **Never put tokens or secrets in the repo.** The token is a URL query on the OBS source (`?token=` + `?client_id=`). `CONFIG.clientId` is the public app id only. Scopes: `moderator:read:followers` (follow alerts), `channel:read:subscriptions` (sub milestone). Follower totals work with any valid token.
 - **Ember is gains only** — subs, gifts, raids, big cheers, completed goals. Follows stay violet. Reach it through `--accent-gain`, never `--ember` directly. `vibe.test.ts` enforces it for the mood palettes.
-- **React never renders per frame.** The scene engine owns its own rAF loop and all particle state; it emits a status snapshot at ≤4Hz for the headline. Anything at 60fps belongs in `engine/`, not in a hook.
+- **React never renders per frame.** The scene engine owns its own rAF loop and all particle state; it emits a status snapshot at ≤4Hz for the headline. Balloons are their own rAF canvas over the stage, not drawn in the starfield. Anything at 60fps belongs in `engine/`, not in a hook.
 - `basePath` is `/twitch-overlay` — this is a project Pages site and Next's asset URLs are absolute.
 - Do not "fix" a disconnected admin by opening it in Chrome. Chrome is a different browser; no shared `localStorage` or BroadcastChannel with OBS CEF.
 - Do not add a backend or sound files unless asked.
@@ -110,3 +110,13 @@ Chill has no HUD over it, so it uses its own set (`CONFIG.camera` drives the fir
 - Effects that open sockets or start timers must be idempotent — StrictMode double-mounts them in dev, and OBS re-shows sources in production.
 - `eslint.config.mjs` downgrades four React Compiler rules to warnings, with the reasoning inline. Everything else, including `rules-of-hooks` and `exhaustive-deps`, is an error.
 - After a deploy, sources need **Refresh cache of current page** or they keep running the old bundle. Diagnostics distinguishes isolated storage from a stale cache.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

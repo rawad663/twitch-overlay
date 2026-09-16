@@ -21,6 +21,21 @@ describe("parse", () => {
       msg: "hello there",
       mod: false,
       bits: 0,
+      glyphs: [],
+    });
+  });
+
+  it("extracts a Twitch emote then a unicode emoji", () => {
+    const m = parse(
+      "@emotes=25:0-4;display-name=Wick;mod=0 :wick!w@w.tmi.twitch.tv PRIVMSG #rawad663 :Kappa 🔥",
+    );
+    expect(m).toMatchObject({
+      kind: "chat",
+      msg: "Kappa 🔥",
+      glyphs: [
+        { kind: "emote", id: "25" },
+        { kind: "emoji", text: "🔥" },
+      ],
     });
   });
 

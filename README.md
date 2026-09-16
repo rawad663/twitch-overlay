@@ -91,6 +91,10 @@ Outside OBS the overlay auto-demos unless you pass `?live=1`. Saved dock setting
 | `!testalert [kind]` | Fake alert (`follow`, `welcome`, `sub`, `raid`, `burst`, …) |
 | `!brb [minutes]` / `!soon [minutes]` / `!afk` / `!back` | Away state |
 
+## Emoji balloons
+
+Unicode emoji and Twitch emotes in chat float up from the bottom of the overlay as short-lived balloons — automatic, no command. Caps live in `CONFIG` (`balloonPerMessage`, `balloonMax`). The dock's **Balloons** button (or `!testalert balloon`) fires a burst. Third-party emotes (7TV / BTTV / FFZ) are not included.
+
 ## Clips
 
 The dock's **Clips** section holds a rotation of Twitch clip links. Chat types `!clip` on the AFK / BRB / starting-soon or lounge source to play the one shown least often, as a picture-in-picture card over the moon. The HUD never plays a clip, so Path of Exile gameplay is left alone.

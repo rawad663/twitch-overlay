@@ -1,3 +1,6 @@
+import { CONFIG } from "@/config/config";
+import { extractBalloons, type BalloonGlyph } from "./emotes";
+
 export type ChatMessage = {
   kind: "chat";
   bits: number;
@@ -5,6 +8,7 @@ export type ChatMessage = {
   user: string;
   msg: string;
   mod: boolean;
+  glyphs: BalloonGlyph[];
 };
 
 export type NoticeMessage = {
@@ -50,12 +54,15 @@ export function parse(raw: string): ParsedMessage | null {
   if (!m) return null;
 
   const badges = tags["badges"] ?? "";
+  // Twitch emote indexes are UTF-16 offsets into this untrimmed body.
+  const body = m[2]!.replace(/[\u0001\r\n]/g, "");
   return {
     kind: "chat",
     bits: parseInt(tags["bits"] ?? "", 10) || 0,
     login: m[1]!,
     user: tags["display-name"] || m[1]!,
-    msg: m[2]!.replace(/[\r\n]/g, "").trim(),
+    msg: body.trim(),
     mod: tags["mod"] === "1" || /broadcaster|moderator/.test(badges),
+    glyphs: extractBalloons(body, tags["emotes"] ?? "", CONFIG.balloonPerMessage),
   };
 }

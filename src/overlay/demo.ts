@@ -25,6 +25,8 @@ const CHATTER = [
   "that was insane",
 ];
 
+const EMOJIS = ["🔥", "😂", "💜", "⭐", "🌙", "💀", "🎉", "❤️", "😎", "✨", "🥹", "🫡"];
+
 const pick = <T,>(a: readonly T[]): T => a[(Math.random() * a.length) | 0]!;
 
 /**
@@ -46,6 +48,14 @@ export function startDemo({
   const once = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
 
   const all = [...NAMES, ...CROWD];
+
+  const burst = (n: number) => {
+    deps().balloons(
+      Array.from({ length: n }, () => ({ kind: "emoji" as const, text: pick(EMOJIS) })),
+    );
+  };
+  once(700, () => burst(5));
+  every(2400, () => burst(1 + ((Math.random() * 3) | 0)));
 
   // steady chatter — feeds the moon, the stars and the vibe
   every(900, () => {

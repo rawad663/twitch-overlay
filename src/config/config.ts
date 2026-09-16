@@ -67,6 +67,13 @@ export const CONFIG = {
   clipPadSeconds: 1,
   /** messages-worth of energy one !moon is worth */
   moonNudge: 3,
+  /** glyphs from one PRIVMSG; extras are dropped */
+  balloonPerMessage: 8,
+  /** oldest balloons fall off once the field is this full */
+  balloonMax: 48,
+  /** particle lifetime in frames (~60fps, so 130–190 ≈ 2–3s) */
+  balloonMinLife: 130,
+  balloonMaxLife: 190,
   /** how long the full command list leads before collapsing to one line */
   guideSeconds: 15,
 

@@ -14,6 +14,7 @@ const TEST_ALERTS: { kind: AlertKind; label: string }[] = [
   { kind: "raid", label: "Raid" },
   { kind: "cheer", label: "Cheer" },
   { kind: "bigcheer", label: "Big cheer" },
+  { kind: "balloon", label: "Balloons" },
   { kind: "burst", label: "Burst" },
 ];
 
