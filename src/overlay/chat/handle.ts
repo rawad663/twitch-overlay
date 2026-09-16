@@ -1,5 +1,6 @@
 import { CONFIG } from "@/config/config";
 import type { AlertKind } from "@/bus/types";
+import type { BalloonGlyph } from "./emotes";
 import type { ChatMessage, NoticeMessage, ParsedMessage } from "./parse";
 
 /**
@@ -16,6 +17,8 @@ export type ChatDeps = {
   star: (login: string, name: string) => void;
   /** count mood words and discard them */
   vibe: (msg: string) => void;
+  /** unicode emoji / Twitch emotes as rising glyphs — never the chat text */
+  balloons: (glyphs: BalloonGlyph[]) => void;
   alerts: {
     welcome: (user: string) => void;
     sub: (user: string, months?: string | number) => void;
@@ -91,6 +94,8 @@ function handleChat(m: ChatMessage, deps: ChatDeps) {
   deps.ping();
   deps.star(m.login, m.user);
   deps.vibe(m.msg);
+  // before bits/commands so `!fate 🔥` still floats the fire
+  if (m.glyphs.length) deps.balloons(m.glyphs);
 
   if (m.bits) deps.alerts.cheer(m.user, m.bits);
 

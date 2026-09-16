@@ -20,6 +20,7 @@ import { Alerts } from "./director/alerts";
 import { FATES, FATES_POE, pick, esc } from "./director/copy";
 import { Sound } from "./audio/sound";
 import { Scene } from "./engine/scene";
+import { BalloonField } from "./engine/balloons";
 import {
   SAVE_THROTTLE_MS,
   SessionLedger,
@@ -29,6 +30,7 @@ import {
 import type { SceneStatus } from "./engine/types";
 import { Irc, type IrcStatus } from "./chat/irc";
 import { handle } from "./chat/handle";
+import type { BalloonGlyph } from "./chat/emotes";
 import { EventSub, type EventSubStatus } from "./twitch/eventsub";
 import { Milestones, EMPTY_TOTALS } from "./twitch/milestones";
 import { startDemo } from "./demo";
@@ -40,6 +42,7 @@ import { Poll } from "./components/Poll";
 import { Oracle } from "./components/Oracle";
 import { Zones } from "./components/Zones";
 import { SceneLayer } from "./components/SceneLayer";
+import { BalloonLayer } from "./components/BalloonLayer";
 import { ClipPlayer } from "./components/ClipPlayer";
 import { OAuthHelper } from "./components/OAuthHelper";
 import { useClips } from "./clips/useClips";
@@ -111,12 +114,14 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   afkReasonRef.current = settings.afkReason;
 
   const [director] = useState(() => new Director((n) => sound.play(n)));
+  const [balloons] = useState(() => new BalloonField());
 
   useEffect(() => {
     const off = director.subscribe(setBanner);
     return () => void off();
   }, [director]);
   useEffect(() => () => director.destroy(), [director]);
+  useEffect(() => () => balloons.destroy(), [balloons]);
 
   const sceneRef = useRef<Scene | null>(null);
   const milestonesRef = useRef<Milestones | null>(null);
@@ -206,6 +211,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       setSceneVisible(visible);
       if (!visible) flushSession();
       sceneRef.current?.setVisible(visible);
+      balloons.setVisible(visible);
     };
     window.addEventListener("obsSourceVisibleChanged", onVis);
     if (window.obsstudio) {
@@ -213,10 +219,11 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         setSceneVisible(!!v);
         if (!v) flushSession();
         sceneRef.current?.setVisible(!!v);
+        balloons.setVisible(!!v);
       };
     }
     return () => window.removeEventListener("obsSourceVisibleChanged", onVis);
-  }, [flushSession]);
+  }, [flushSession, balloons]);
 
   useEffect(() => {
     const onHide = () => flushSession();
@@ -278,6 +285,10 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         case "moon":
           for (let i = 0; i < CONFIG.moonNudge; i++) ping();
           return;
+        case "balloon":
+          return balloons.spawn(
+            ["🔥", "😂", "💜", "⭐", "🌙", "🎉"].map((text) => ({ kind: "emoji" as const, text })),
+          );
         case "burst":
           // seven at once — the only way to actually see the queue behave
           alerts.follow(u);
@@ -292,7 +303,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
           return alerts.sub(u, 1);
       }
     },
-    [alerts, ping],
+    [alerts, ping, balloons],
   );
 
   /* ── chat ── */
@@ -309,6 +320,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         ledger.note(msg);
         scheduleSave();
       },
+      balloons: (glyphs: BalloonGlyph[]) => balloons.spawn(glyphs),
       alerts: {
         welcome: (u: string) => alerts.welcome(u),
         sub: (u: string, m?: string | number) => alerts.sub(u, m),
@@ -346,7 +358,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         Math.max(0, CONFIG.fullMoonMessages - moon.beats.current.length - 1),
       clip: clips.request,
     }),
-    [chill, ping, ledger, scheduleSave, alerts, fate, fatePoe, say, testAlert, tallies, poll, cooldown, moon, clips.request],
+    [chill, ping, ledger, scheduleSave, alerts, fate, fatePoe, say, testAlert, tallies, poll, cooldown, moon, clips.request, balloons],
   );
 
   // The IRC socket outlives any single render, so it reaches the current
@@ -559,6 +571,9 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         {/* Chill has no HUD layered over it, so the banner comes back here —
             moved right to clear the camera frame. */}
         {(!scene || chill) && <Oracle evt={banner} lowered={pollOn} chill={chill} />}
+
+        {/* After SceneLayer so querySelector("canvas") still hits the sky. */}
+        <BalloonLayer field={balloons} />
       </div>
 
       <OAuthHelper />

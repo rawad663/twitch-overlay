@@ -129,6 +129,7 @@ export type AlertKind =
   | "wave"
   | "heart"
   | "moon"
+  | "balloon"
   | "burst";
 
 /** Every message that can cross the bus, with its exact payload. */

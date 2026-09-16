@@ -10,6 +10,7 @@ function makeDeps(over: Partial<ChatDeps> = {}): ChatDeps {
     ping: vi.fn(),
     star: vi.fn(),
     vibe: vi.fn(),
+    balloons: vi.fn(),
     alerts: {
       welcome: vi.fn(),
       sub: vi.fn(),
@@ -64,6 +65,16 @@ describe("handle — every message", () => {
     expect(d.ping).toHaveBeenCalled();
     expect(d.star).toHaveBeenCalledWith("wick", "wick");
     expect(d.vibe).toHaveBeenCalledWith("just talking");
+  });
+
+  it("floats unicode emoji as balloons", () => {
+    handle(chat("nice 🔥"), d);
+    expect(d.balloons).toHaveBeenCalledWith([{ kind: "emoji", text: "🔥" }]);
+  });
+
+  it("does not spawn balloons for plain text", () => {
+    handle(chat("just talking"), d);
+    expect(d.balloons).not.toHaveBeenCalled();
   });
 
   it("welcomes a login only on its first message", () => {
