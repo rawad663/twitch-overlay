@@ -3,7 +3,7 @@
  * printer. `{u}` is the actor, `{r}` the recipient, `{n}` a count.
  */
 
-/** Real-life oracle lines for !fate — funny, deep, and chat-starting. */
+/** Real-life oracle lines for !fate — funny and deep. */
 export const FATES = [
   "You will open the fridge again. Nothing new grew in there.",
   "The next thing you drop will bounce under the couch. Accept it now.",
@@ -29,18 +29,6 @@ export const FATES = [
   "The night is long. You do not have to solve it before dawn.",
   "The thing you keep postponing is the one that would actually help.",
   "You outgrew a room and stayed anyway. Leave when you are ready.",
-  "Tell chat the last thing that made you laugh for real.",
-  "Ask someone here what they would redo if they could.",
-  "Name a food you would defend in a fight. No cowards.",
-  "What is a hill you will die on that nobody asked about?",
-  "Confess a comfort show you rewatch like a ritual.",
-  "If you could steal one skill from anyone in chat, whose?",
-  "What city would you wake up in tomorrow if the moon chose?",
-  "Tell the story of the worst job you almost took.",
-  "What is the most expensive thing you still have not used?",
-  "Pick a song for the rest of this stream. Defend it.",
-  "Who in your life would survive a horror movie, and why is it your mom?",
-  "What is something ordinary that still feels like magic to you?",
   "Text someone you miss. Not later. After this message.",
   "Drink water. The omen is that simple tonight.",
   "Go to bed twenty minutes earlier than your pride wants.",
