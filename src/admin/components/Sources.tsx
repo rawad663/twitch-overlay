@@ -25,26 +25,42 @@ function dotClass(irc: string) {
 }
 
 export function Sources({ sources }: { sources: Source[] }) {
+  const expired = sources.some((v) => !v.demo && v.eventsub === "expired");
+  const failed = sources.some((v) => !v.demo && v.eventsub === "error");
   return (
     <Section title="Sources">
+      {(expired || failed) && (
+        <div className={s.sourceWarning} role="status">
+          <strong>⚠ {expired ? "Twitch authorization expired" : "Twitch follow alerts unavailable"}</strong>
+          <p>
+            Live follow alerts are not working on the affected sources, even if chat is connected.
+            Go to Milestones below to authorize Twitch again, then replace those sources&rsquo; OBS URLs.
+          </p>
+        </div>
+      )}
       <div>
         {sources.length === 0 ? (
           <div className={s.empty}>None responding.</div>
         ) : (
           sources.map((v, i) => {
-            const meta = [`IRC ${v.irc}`, v.token ? `EventSub ${v.eventsub}` : "no token"];
-            if (v.demo) meta.push("demo");
+            const unhealthy = !v.demo && (v.eventsub === "expired" || v.eventsub === "error");
             return (
               <div className={s.src} key={`${v.role}-${v.mode}-${i}`}>
-                <span className={dotClass(v.irc)} />
+                <span className={unhealthy ? `${s.dot} ${s.dotBad}` : dotClass(v.irc)} />
                 <span className={s.who}>{v.role === "scene" ? `Scene · ${v.mode}` : "HUD"}</span>
-                <span className={s.meta}>{meta.join("  ·  ")}</span>
+                <span className={`${s.meta} ${s.sourceMeta}`}>
+                  <span>IRC {v.irc}</span>
+                  <span className={unhealthy ? s.sourceError : undefined}>
+                    {unhealthy && "⚠ "}{v.token ? `EventSub ${v.eventsub}` : "no token"}
+                  </span>
+                  {v.demo && <span>demo</span>}
+                </span>
               </div>
             );
           })
         )}
       </div>
-      {sources.some((v) => !v.demo && (!v.token || v.eventsub !== "live")) && (
+      {!expired && !failed && sources.some((v) => !v.demo && (!v.token || v.eventsub !== "live")) && (
         <div className={s.verdict} style={{ marginTop: 10 }}>
           Live follows need EventSub live on the source showing the banner. Test alerts bypass
           Twitch. If it says no token, expired, or error, use the Milestones authorize URL while
