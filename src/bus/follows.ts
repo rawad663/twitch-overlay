@@ -6,6 +6,7 @@ type Sink = {
   follow: (user: string, id?: string) => void;
   status: (status: FollowStatus) => void;
   notice: (notice: string) => void;
+  terminal: () => void;
 };
 
 const FRESH_MS = 6000;
@@ -26,6 +27,7 @@ export class SharedFollows {
   private heartbeat: ReturnType<typeof setInterval> | null = null;
   private snapshot: FollowSnapshot | null = null;
   private latest: FollowSnapshot | null = null;
+  private terminalState: { status: FollowStatus; notice: string } | null = null;
   private seen = new Map<string, number>();
   private since = Date.now();
   private lastAt = 0;
@@ -65,6 +67,10 @@ export class SharedFollows {
     const stored = readJSON<FollowSnapshot>(this.key);
     if (stored) this.receive(stored);
     if (Date.now() - this.lastAt > FRESH_MS) {
+      if (this.terminalState) {
+        this.onState(this.terminalState.status, this.terminalState.notice);
+        return;
+      }
       this.onState(this.eligible ? "connecting" : "off",
         this.eligible ? "Waiting for the shared Twitch listener" : "No shared Twitch listener — authorize at least one loaded source");
       if (this.eligible && !this.locks) this.unavailable();
@@ -76,7 +82,7 @@ export class SharedFollows {
   }
 
   private async acquire() {
-    if (this.stopped || !this.eligible || this.requesting) return;
+    if (this.stopped || !this.eligible || this.requesting || this.terminalState) return;
     if (!this.locks) { this.unavailable(); return; }
     this.requesting = true;
     try {
@@ -91,21 +97,28 @@ export class SharedFollows {
         try {
           this.disconnect = this.connect({
             follow: (user, id) => {
-              if (!this.snapshot || this.stopped) return;
+              if (!this.snapshot || this.stopped || this.terminalState) return;
               const eventId = id ?? `${this.bus.id}-${Date.now()}-${Math.random()}`;
               if (this.seen.has(eventId)) return;
               this.snapshot.events.push({ id: eventId, user, at: Date.now() });
               this.publish();
             },
             status: (status) => {
-              if (!this.snapshot || this.stopped) return;
+              if (!this.snapshot || this.stopped || this.terminalState) return;
               this.snapshot.status = status;
               this.publish();
             },
             notice: (notice) => {
-              if (!this.snapshot || this.stopped) return;
+              if (!this.snapshot || this.stopped || this.terminalState) return;
               this.snapshot.notice = notice;
               this.publish();
+            },
+            terminal: () => {
+              if (!this.snapshot || this.stopped || this.terminalState) return;
+              this.terminalState = { status: this.snapshot.status, notice: this.snapshot.notice };
+              // This instance captures one credential pair. Only a credentials
+              // change creates a new eligible instance; heartbeat retries cannot.
+              this.release?.();
             },
           });
           await held;

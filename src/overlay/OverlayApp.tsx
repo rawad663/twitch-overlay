@@ -395,7 +395,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       CONFIG.channel,
       !!(auth.token && auth.clientId),
       (sink) => {
-        const es = new EventSub(auth, CONFIG.channel, sink.follow, sink.status, sink.notice);
+        const es = new EventSub(auth, CONFIG.channel, sink.follow, sink.status, sink.notice, sink.terminal);
         void es.start();
         return () => es.destroy();
       },

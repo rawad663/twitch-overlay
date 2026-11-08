@@ -24,6 +24,7 @@ describe("Twitch follow listener", () => {
   const follow = vi.fn();
   const status = vi.fn();
   const notice = vi.fn();
+  const terminal = vi.fn();
   beforeEach(() => {
     vi.useFakeTimers();
     vi.resetAllMocks();
@@ -31,7 +32,7 @@ describe("Twitch follow listener", () => {
     vi.stubGlobal("WebSocket", Socket);
     vi.mocked(resolveUserId).mockResolvedValue("channel-id");
     vi.mocked(helix).mockResolvedValue(new Response(null, { status: 202 }));
-    listener = new EventSub({ token: "test-token", clientId: "test-client" }, "channel", follow, status, notice);
+    listener = new EventSub({ token: "test-token", clientId: "test-client" }, "channel", follow, status, notice, terminal);
   });
   afterEach(() => {
     listener.destroy();
@@ -118,6 +119,8 @@ describe("Twitch follow listener", () => {
     ws.message("revocation", { subscription: { type: "channel.follow", status: "authorization_revoked" } });
     expect(status).toHaveBeenLastCalledWith("expired");
     expect(notice).toHaveBeenLastCalledWith(expect.stringContaining("authorize Twitch again"));
+    expect(terminal).toHaveBeenCalledOnce();
+    expect(ws.close).toHaveBeenCalledOnce();
   });
 
   it("explains missing follower permissions without a retry loop", async () => {
@@ -125,6 +128,7 @@ describe("Twitch follow listener", () => {
     await live();
     expect(status).toHaveBeenLastCalledWith("error");
     expect(notice).toHaveBeenLastCalledWith(expect.stringContaining("moderator:read:followers"));
+    expect(terminal).toHaveBeenCalledOnce();
     await vi.advanceTimersByTimeAsync(60000);
     expect(Socket.all).toHaveLength(1);
   });
@@ -141,9 +145,27 @@ describe("Twitch follow listener", () => {
     await live();
     expect(status).toHaveBeenLastCalledWith("error");
     expect(notice).toHaveBeenLastCalledWith(expect.stringContaining("connection limit"));
+    expect(terminal).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(59000);
     expect(Socket.all).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(1000);
+    expect(Socket.all).toHaveLength(2);
+  });
+
+  it("notifies the owner after closing on subscription 401", async () => {
+    vi.mocked(helix).mockResolvedValue(new Response(null, { status: 401 }));
+    terminal.mockImplementation(() => expect(Socket.all[0]!.close).toHaveBeenCalledOnce());
+    await live();
+    expect(terminal).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(Socket.all).toHaveLength(1);
+  });
+
+  it("does not relinquish ownership for a transient subscription failure", async () => {
+    vi.mocked(helix).mockResolvedValue(new Response(null, { status: 503 }));
+    await live();
+    expect(terminal).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(15000);
     expect(Socket.all).toHaveLength(2);
   });
 

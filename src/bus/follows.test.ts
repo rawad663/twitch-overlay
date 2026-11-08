@@ -45,7 +45,15 @@ function source(eligible = true, manager = locks) {
   });
   const shared = new SharedFollows(new MemoryBus(), "channel", eligible, connect, follow, state, manager).start();
   instances.push(shared);
-  return { shared, connect, follow, state, emit: (user: string, id: string) => sink.follow(user, id) };
+  return {
+    shared, connect, follow, state,
+    emit: (user: string, id: string) => sink.follow(user, id),
+    fail: (status: "expired" | "error", terminal = true) => {
+      sink.status(status);
+      sink.notice("Authorization rejected");
+      if (terminal) sink.terminal();
+    },
+  };
 }
 
 beforeEach(() => {
@@ -92,6 +100,71 @@ it("takes over when the owner closes, without overlapping listeners", async () =
   second.emit("After takeover", "second-event");
   expect(second.follow).toHaveBeenCalledWith("After takeover");
   expect(first.follow).not.toHaveBeenCalled();
+});
+
+it.each(["expired", "error"] as const)("releases a terminal %s owner and lets a healthy source take over", async (status) => {
+  const first = source();
+  const second = source();
+  first.fail(status);
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(active).toBe(1);
+  expect(maximum).toBe(1);
+  expect(second.connect).toHaveBeenCalledOnce();
+  second.emit("Recovered viewer", "recovered-event");
+  expect(first.follow).toHaveBeenCalledWith("Recovered viewer");
+  expect(second.follow).toHaveBeenCalledWith("Recovered viewer");
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(first.connect).toHaveBeenCalledOnce();
+  expect(first.state).toHaveBeenLastCalledWith("live", "");
+  second.shared.destroy();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(active).toBe(0);
+  expect(first.connect).toHaveBeenCalledOnce();
+  expect(first.state).toHaveBeenLastCalledWith(status, "Authorization rejected");
+});
+
+it("retains ownership for retryable errors", async () => {
+  const first = source();
+  const second = source();
+  first.fail("error", false);
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(active).toBe(1);
+  expect(second.connect).not.toHaveBeenCalled();
+});
+
+it("does not spin when every source has rejected credentials; replacement can recover", async () => {
+  const first = source();
+  const second = source();
+  first.fail("expired");
+  await vi.advanceTimersByTimeAsync(2000);
+  second.fail("expired");
+  await vi.advanceTimersByTimeAsync(20000);
+  expect(active).toBe(0);
+  expect(first.connect).toHaveBeenCalledOnce();
+  expect(second.connect).toHaveBeenCalledOnce();
+  expect(first.state).toHaveBeenLastCalledWith("expired", "Authorization rejected");
+  const replacement = source();
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(replacement.connect).toHaveBeenCalledOnce();
+  expect(first.state).toHaveBeenLastCalledWith("live", "");
+});
+
+it("cleans up a connector that reports terminal failure synchronously", async () => {
+  const cleanup = vi.fn();
+  const connect = vi.fn((sink: Parameters<ConstructorParameters<typeof SharedFollows>[3]>[0]) => {
+    sink.status("expired");
+    sink.notice("Authorization rejected");
+    sink.terminal();
+    return cleanup;
+  });
+  const shared = new SharedFollows(new MemoryBus(), "channel", true, connect, vi.fn(), vi.fn(), locks).start();
+  instances.push(shared);
+  const next = source();
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(cleanup).toHaveBeenCalledOnce();
+  expect(next.connect).toHaveBeenCalledOnce();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(connect).toHaveBeenCalledOnce();
 });
 
 it("delivers bursts through storage polling without BroadcastChannel", async () => {

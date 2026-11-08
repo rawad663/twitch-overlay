@@ -31,6 +31,7 @@ export class EventSub {
     private onFollow: (user: string, id?: string) => void,
     private onStatus: (s: EventSubStatus) => void,
     private onNotice: (text: string) => void,
+    private onTerminal: () => void = () => {},
   ) {}
 
   async start() {
@@ -108,7 +109,7 @@ export class EventSub {
       } else if (type === "revocation") {
         this.onStatus(d.payload?.subscription?.status === "authorization_revoked" ? "expired" : "error");
         this.onNotice("follow alerts revoked — authorize Twitch again");
-        this.destroy();
+        this.stopPermanently();
       }
     };
 
@@ -151,7 +152,7 @@ export class EventSub {
           : r.status === 429
             ? "Twitch connection limit reached — refresh every OBS overlay source to close old listeners; retrying in 60 seconds"
             : `follow alerts unavailable (Twitch ${r.status})`);
-      if (r.status === 401 || r.status === 403) this.destroy();
+      if (r.status === 401 || r.status === 403) this.stopPermanently();
       else this.reconnect(r.status === 429 ? 60000 : 15000, "error");
     } catch {
       if (this.closed || this.ws !== ws) return;
@@ -168,6 +169,12 @@ export class EventSub {
     ws.onmessage = null;
     try { ws.close(); } catch { /* already gone */ }
     if (this.ws === ws) this.ws = null;
+  }
+
+  private stopPermanently() {
+    // The shared owner must release its lock after Twitch will no longer retry.
+    this.destroy();
+    this.onTerminal();
   }
 
   private reconnect(delay = 5000, status: EventSubStatus = "connecting") {

@@ -35,6 +35,8 @@ try {
   context.on("weberror", (event) => errors.push(String(event.error())));
   let subscriptions = 0;
   const usedTokens = [];
+  const rejectedTokens = new Set();
+  let rejectedSubscriptions = 0;
   await context.route("https://id.twitch.tv/oauth2/validate", async (route) => {
     const invalid = route.request().headers().authorization === "OAuth invalid-token";
     await route.fulfill({ status: invalid ? 401 : 200, contentType: "application/json", body: JSON.stringify({
@@ -45,12 +47,14 @@ try {
   await context.route("https://api.twitch.tv/helix/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const subscription = path.endsWith("/eventsub/subscriptions");
-    if (subscription) {
+    const rejected = subscription && rejectedTokens.has(route.request().headers().authorization);
+    if (rejected) rejectedSubscriptions++;
+    if (subscription && !rejected) {
       subscriptions++;
       usedTokens.push(route.request().headers().authorization);
     }
     await route.fulfill({
-      status: subscription ? 202 : 200,
+      status: rejected ? 403 : subscription ? 202 : 200,
       contentType: "application/json",
       body: JSON.stringify(path.endsWith("/users") ? { data: [{ id: "channel-id" }] } : { data: [], total: 123 }),
     });
@@ -118,6 +122,7 @@ try {
   const nextOwner = remaining[nextCounts.findIndex((count) => count === 1)];
   console.log("PASS: another source takes ownership after the owner closes");
 
+  rejectedTokens.add("Bearer test-token");
   await nextOwner.evaluate(() => window.testSockets.find((s) => s.readyState === 1).emit("revocation", {
     subscription: { type: "channel.follow", status: "authorization_revoked" },
   }));
@@ -159,6 +164,33 @@ try {
   assert.equal(await admin.evaluate(() => JSON.parse(localStorage.getItem("rawad-twitch-auth")).token), "");
   assert.deepEqual(errors, []);
   console.log("PASS: removing stored credentials disconnects every source without a reload");
+
+  // Legacy sources may carry different credentials. A rejected owner must not
+  // keep the lock or repeatedly steal it from a source with working credentials.
+  await admin.evaluate(() => localStorage.removeItem("rawad-twitch-auth"));
+  rejectedTokens.add("Bearer rejected-legacy-token");
+  const rejectedBefore = rejectedSubscriptions;
+  const bad = await context.newPage();
+  await bad.goto(`${origin}/?live=1&token=rejected-legacy-token&client_id=test-client`);
+  await waitFor(() => rejectedSubscriptions > rejectedBefore);
+  const successfulBefore = subscriptions;
+  const healthy = await context.newPage();
+  await healthy.goto(`${origin}/?live=1&mode=chill&token=healthy-legacy-token&client_id=test-client`);
+  await waitFor(() => usedTokens.at(-1) === "Bearer healthy-legacy-token");
+  assert.equal(subscriptions, successfulBefore + 1);
+  await healthy.evaluate(() => window.testSockets.find((s) => s.readyState === 1).emit("notification", {
+    subscription: { type: "channel.follow" }, event: { user_name: "FailoverViewer" },
+  }, "failover-event"));
+  await bad.getByText(/FailoverViewer/).first().waitFor();
+  await healthy.getByText(/FailoverViewer/).first().waitFor();
+  assert.equal(await bad.evaluate(() => window.testSockets.filter((s) => s.readyState === 1).length), 0);
+  const failuresAfterTakeover = rejectedSubscriptions;
+  await healthy.close();
+  // Allow more than two election cycles to prove the rejected source stays out.
+  await new Promise((done) => setTimeout(done, 4500));
+  assert.equal(rejectedSubscriptions, failuresAfterTakeover);
+  assert.deepEqual(errors, []);
+  console.log("PASS: terminal authorization failure releases ownership; a healthy source delivers follows and the failed source cannot reclaim the lock");
 } finally {
   await browser.close();
   await new Promise((done) => server.close(done));

@@ -159,6 +159,12 @@ engine with Web Locks support and the HTTPS source URL. Missing support is repor
 instead of opening independent listeners. Twitch connection and milestone errors appear only in
 the admin dock, never on the stream. A 429 pauses subscription retries for 60 seconds.
 
+Permanent authorization failures (subscription 401/403 or revocation) also release ownership.
+The rejected source continues receiving shared events but cannot own the listener again until
+its credentials change or the source reloads. This lets a source with valid legacy credentials
+take over. Temporary connection failures and rate limits keep ownership while retrying. If all
+sources share an expired token, renew it in the dock; switching owners cannot repair that token.
+
 When upgrading from independent listeners, refresh **all** overlay sources (HUD, Chill, AFK,
 Soon, and any duplicates) and the control dock so old connections close. Mixed builds can still
 hit Twitch's connection limit. The shared-listener bus build is `bus-3`.
