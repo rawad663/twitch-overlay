@@ -211,9 +211,12 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
      otherwise, so pausing here is what stops a hidden scene burning a core.
      Flush the sky first: OBS may destroy the page as soon as we go hidden. */
   useEffect(() => {
+    // Every source receives follows; only the visible banner source should sound.
+    sound.setFollowVisible(!scene || chill);
     const onVis = (e: Event) => {
       const detail = (e as CustomEvent<{ visible?: boolean }>).detail;
       const visible = detail ? detail.visible !== false : true;
+      sound.setFollowVisible((!scene || chill) && visible);
       setSceneVisible(visible);
       if (!visible) flushSession();
       sceneRef.current?.setVisible(visible);
@@ -222,6 +225,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     window.addEventListener("obsSourceVisibleChanged", onVis);
     if (window.obsstudio) {
       window.obsstudio.onVisibilityChange = (v: boolean) => {
+        sound.setFollowVisible((!scene || chill) && !!v);
         setSceneVisible(!!v);
         if (!v) flushSession();
         sceneRef.current?.setVisible(!!v);
@@ -229,7 +233,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       };
     }
     return () => window.removeEventListener("obsSourceVisibleChanged", onVis);
-  }, [flushSession, balloons]);
+  }, [flushSession, balloons, sound, scene, chill]);
 
   useEffect(() => {
     const onHide = () => flushSession();

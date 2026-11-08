@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { Director } from "./director";
 import { CONFIG } from "@/config/config";
+import { Alerts } from "./alerts";
 
 describe("Director", () => {
   let d: Director;
@@ -67,17 +68,35 @@ describe("Director", () => {
     expect(d.pending("follow")).toBe(f);
   });
 
-  it("plays a sound for gains and stays silent for follows", () => {
+  it("plays follow and gain cues but keeps system notices silent", () => {
     const sound = vi.fn();
     const s = new Director(sound);
     s.push("follow", "f", "");
     vi.advanceTimersByTime(10_000);
-    expect(sound).not.toHaveBeenCalled();
+    expect(sound).toHaveBeenCalledExactlyOnceWith("follow");
 
     s.push("sub", "s", "");
     vi.advanceTimersByTime(10_000);
     expect(sound).toHaveBeenCalledWith("sub");
+    sound.mockClear();
+    s.push("system", "notice", "");
+    vi.advanceTimersByTime(10_000);
+    expect(sound).not.toHaveBeenCalled();
     s.destroy();
+  });
+
+  it("plays one follow cue when a merged follow banner actually starts", () => {
+    const sound = vi.fn();
+    const director = new Director(sound);
+    const alerts = new Alerts(director, { note: vi.fn(), bump: vi.fn() });
+    director.push("raid", "raid", "");
+    alerts.follow("one");
+    alerts.follow("two");
+    alerts.follow("three");
+    expect(sound).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(60_000);
+    expect(sound.mock.calls).toEqual([["raid"], ["follow"]]);
+    director.destroy();
   });
 
   it("leaves a gap between banners so two never blur together", () => {

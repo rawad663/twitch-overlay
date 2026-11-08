@@ -1,5 +1,6 @@
 import { CONFIG } from "@/config/config";
 import { NEVER_SHED, TIERS, type AlertType } from "./tiers";
+import type { AlertSound } from "../audio/sound";
 
 export type AlertEvent = {
   id: number;
@@ -32,10 +33,10 @@ export class Director {
   private nextId = 1;
   private listeners = new Set<(e: AlertEvent | null) => void>();
 
-  /** Fired when a queued event is mutated in place (a merged follow/cheer). */
-  private onSound?: (name: "sub" | "gift" | "massgift" | "raid" | "cheer") => void;
+  /** Fired once when the banner starts, not when pending alerts merge. */
+  private onSound?: (name: AlertSound) => void;
 
-  constructor(onSound?: (name: "sub" | "gift" | "massgift" | "raid" | "cheer") => void) {
+  constructor(onSound?: (name: AlertSound) => void) {
     this.onSound = onSound;
   }
 
@@ -113,7 +114,7 @@ export class Director {
 
   private render(evt: AlertEvent) {
     this.showing = evt;
-    if (evt.type === "sub" || evt.type === "gift" || evt.type === "massgift" || evt.type === "raid") {
+    if (evt.type === "follow" || evt.type === "sub" || evt.type === "gift" || evt.type === "massgift" || evt.type === "raid") {
       this.onSound?.(evt.type);
     } else if (evt.type === "cheer" || evt.type === "bigcheer") {
       this.onSound?.("cheer");

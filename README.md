@@ -121,6 +121,11 @@ Unlike the away scene, **the HUD is not layered on top**, so the alert banner re
 
 IRC covers chat, bits, subs, gifts and raids anonymously. Follow alerts and the HUD lifetime counters need a Twitch app + token.
 
+Follow banners play a bright rising chime (live events and the dock's test follow use the same cue).
+It respects the dock's volume and mute controls. Queued follows that merge into one banner play
+one chime; hidden sources and away-scene layers stay silent for follows so they do not double the
+visible HUD or Chill banner's sound. The cue is synthesized locally with no audio-file download.
+
 The OBS dock's **Milestones** section builds the authorize URL. Copy it, open it in a **normal browser** (not the dock), and authorize as the channel owner. On the landing page choose **Copy token for OBS dock**, then paste it into **Twitch access token** in the OBS dock and select **Save token**. Twitch validates the account and follower permission; the matching public Client ID is filled automatically.
 
 The token is saved once in OBS's shared local storage. Every loaded source reconnects automatically,
