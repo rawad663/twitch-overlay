@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PRESENCE_KEY, type AlertKind, type HelloPayload, type Settings, type Totals } from "@/bus/types";
 import { BUILD } from "@/bus/types";
 import { writeJSON } from "@/bus/storage";
+import { SharedFollows } from "@/bus/follows";
 import { useBus, useInterval, useLatest } from "@/bus/useBus";
 import { CONFIG, DEFAULT_SETTINGS } from "@/config/config";
 import { loadSettings, mergeSettings, persistSettings } from "@/config/settings";
@@ -72,6 +73,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [banner, setBanner] = useState<AlertEvent | null>(null);
   const [notice, setNotice] = useState("");
+  const [followNotice, setFollowNotice] = useState("");
   const [totals, setTotals] = useState<Totals>(EMPTY_TOTALS);
   const [sceneStatus, setSceneStatus] = useState<SceneStatus | null>(null);
   const [guideOn, setGuideOn] = useState(false);
@@ -382,18 +384,22 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   }, [demo, chill, depsRef]);
 
   useEffect(() => {
-    if (demo || !params.token || !params.clientId) return;
+    if (demo || !bus) return;
     const auth = { token: params.token, clientId: params.clientId };
-    const es = new EventSub(
-      auth,
+    const shared = new SharedFollows(
+      bus,
       CONFIG.channel,
+      !!(auth.token && auth.clientId),
+      (sink) => {
+        const es = new EventSub(auth, CONFIG.channel, sink.follow, sink.status, sink.notice);
+        void es.start();
+        return () => es.destroy();
+      },
       (u) => alerts.follow(u),
-      setEsStatus,
-      setNotice,
-    );
-    void es.start();
-    return () => es.destroy();
-  }, [demo, params.token, params.clientId, alerts]);
+      (status, detail) => { setEsStatus(status); setFollowNotice(detail); },
+    ).start();
+    return () => shared.destroy();
+  }, [bus, demo, params.token, params.clientId, alerts]);
 
   /* Lifetime totals — HUD only. A scene source has no milestone widget, and
      two sources polling would double the API traffic for one number. */
@@ -469,6 +475,8 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       build: BUILD,
       irc: ircStatus,
       eventsub: esStatus,
+      followNotice,
+      twitchNotice: notice,
       token: !!params.token,
       clientId: params.clientId,
       away: {
@@ -489,7 +497,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       clip: clips.snapshot,
     };
     bus.send("hello", payload);
-  }, [bus, scene, mode, demo, ircStatus, esStatus, params, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot]);
+  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, notice, params, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot]);
 
   useEffect(() => {
     if (!bus) return;
@@ -547,7 +555,6 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
             <Rail t0={t0} />
             <Strip moon={moon} defs={settings.tallyDefs} counts={tallies.counts} hit={tallies.hit} />
             <Goals totals={totals} settings={settings} suppressed={bannerActive || pollOn} />
-            <div className={`${s.notice} ${notice ? s.on : ""}`}>{notice}</div>
             <Poll poll={poll.poll} />
           </>
         )}

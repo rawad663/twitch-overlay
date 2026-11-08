@@ -21,7 +21,7 @@ export class Milestones {
     private auth: Auth,
     private channel: string,
     private onChange: (t: Totals) => void,
-    /** surfaced in the HUD's corner notice */
+    /** Reported to the admin dock through the source heartbeat. */
     private onNotice: (text: string) => void,
   ) {}
 

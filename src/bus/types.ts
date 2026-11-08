@@ -16,7 +16,17 @@ export const CLIPS_KEY = "rawad-clips";
 export const CLIP_PLAYS_KEY = "rawad-clip-plays";
 
 /** Bumped only when the send/deliver contract changes. Shown in diagnostics. */
-export const BUILD = "bus-2";
+export const BUILD = "bus-3";
+
+export type FollowStatus = "off" | "connecting" | "live" | "expired" | "error";
+export type FollowSnapshot = {
+  channel: string;
+  owner: string;
+  at: number;
+  status: FollowStatus;
+  notice: string;
+  events: Array<{ id: string; user: string; at: number }>;
+};
 
 export type BusRole = "hud" | "scene";
 
@@ -102,6 +112,8 @@ export type HelloPayload = {
   build: string;
   irc: string;
   eventsub: string;
+  followNotice?: string;
+  twitchNotice?: string;
   token: boolean;
   clientId: string;
   away: AwaySnapshot;
@@ -134,6 +146,7 @@ export type AlertKind =
 
 /** Every message that can cross the bus, with its exact payload. */
 export type BusPayloads = {
+  "follow.sync": FollowSnapshot;
   "away.brb": { minutes?: number };
   "away.soon": { minutes?: number };
   "away.afk": Record<string, never>;

@@ -1,9 +1,10 @@
 import { helix, resolveUserId, type Auth } from "./helix";
+import type { FollowStatus } from "@/bus/types";
 
-export type EventSubStatus = "off" | "connecting" | "live" | "expired" | "error";
+export type EventSubStatus = FollowStatus;
 
 type Envelope = {
-  metadata?: { message_type?: string };
+  metadata?: { message_type?: string; message_id?: string };
   payload?: {
     session?: { id?: string; reconnect_url?: string; keepalive_timeout_seconds?: number | null };
     subscription?: { type?: string; status?: string };
@@ -27,7 +28,7 @@ export class EventSub {
   constructor(
     private auth: Auth,
     private channel: string,
-    private onFollow: (user: string) => void,
+    private onFollow: (user: string, id?: string) => void,
     private onStatus: (s: EventSubStatus) => void,
     private onNotice: (text: string) => void,
   ) {}
@@ -94,7 +95,9 @@ export class EventSub {
         arm(keepaliveMs + 1000);
         if (d.payload?.subscription?.type === "channel.follow") {
           const ev = d.payload.event ?? {};
-          this.onFollow(ev.user_name || ev.user_login || "someone");
+          const user = ev.user_name || ev.user_login || "someone";
+          if (d.metadata?.message_id) this.onFollow(user, d.metadata.message_id);
+          else this.onFollow(user);
         }
       } else if (type === "session_reconnect") {
         const next = d.payload?.session?.reconnect_url;
@@ -145,9 +148,11 @@ export class EventSub {
         ? "follow alerts: check token and client ID, then authorize Twitch again"
         : r.status === 403
           ? "follow alerts need moderator:read:followers — authorize as the channel owner"
-          : `follow alerts unavailable (Twitch ${r.status})`);
+          : r.status === 429
+            ? "Twitch connection limit reached — refresh every OBS overlay source to close old listeners; retrying in 60 seconds"
+            : `follow alerts unavailable (Twitch ${r.status})`);
       if (r.status === 401 || r.status === 403) this.destroy();
-      else this.reconnect();
+      else this.reconnect(r.status === 429 ? 60000 : 15000, "error");
     } catch {
       if (this.closed || this.ws !== ws) return;
       this.onNotice("follow alerts offline");
@@ -165,15 +170,15 @@ export class EventSub {
     if (this.ws === ws) this.ws = null;
   }
 
-  private reconnect() {
+  private reconnect(delay = 5000, status: EventSubStatus = "connecting") {
     if (this.closed) return;
     for (const ws of this.sockets.keys()) this.drop(ws);
-    this.onStatus("connecting");
+    this.onStatus(status);
     if (this.retry) clearTimeout(this.retry);
     this.retry = setTimeout(() => {
       this.retry = null;
       void this.start();
-    }, 5000);
+    }, delay);
   }
 
   destroy() {

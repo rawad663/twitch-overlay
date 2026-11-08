@@ -136,6 +136,17 @@ describe("Twitch follow listener", () => {
     expect(Socket.all).toHaveLength(1);
   });
 
+  it("backs off for 60 seconds after Twitch rejects excess connections", async () => {
+    vi.mocked(helix).mockResolvedValue(new Response(null, { status: 429 }));
+    await live();
+    expect(status).toHaveBeenLastCalledWith("error");
+    expect(notice).toHaveBeenLastCalledWith(expect.stringContaining("connection limit"));
+    await vi.advanceTimersByTimeAsync(59000);
+    expect(Socket.all).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(Socket.all).toHaveLength(2);
+  });
+
   it("ignores a subscription response after destruction", async () => {
     let resolve!: (r: Response) => void;
     vi.mocked(helix).mockReturnValue(new Promise((r) => { resolve = r; }));

@@ -131,9 +131,23 @@ If test follows show but live follows do not, check **Sources → EventSub** in 
 Tests bypass Twitch entirely; working follower totals also do not prove that follow alerts are authorized.
 The source rendering the banner should report `live`. For `no token`, `expired`, or `error`,
 authorize again as the channel owner with the Milestones URL and replace that source's URL.
-The Chill source needs the token and client ID too; preserve `mode=chill` when updating it.
+Follow events are shared by all loaded sources. Only one authorized source connects to Twitch;
+the others receive its events and status without opening more EventSub connections. Keep valid
+tokens on sources that should be able to take over when the current owner closes. The HUD still
+needs its own token for lifetime totals. Preserve each source's `mode` when updating URLs.
 `connecting` means the listener is connecting or retrying. After deploying a listener fix,
 use **Refresh cache of current page** on the OBS browser sources.
+
+The shared listener uses an exclusive browser lock and automatically transfers ownership when
+its source closes. Follow events use the control bus plus a short storage journal for OBS's polling
+fallback; tokens are never broadcast or stored in that journal. This needs a current OBS browser
+engine with Web Locks support and the HTTPS source URL. Missing support is reported in the dock
+instead of opening independent listeners. Twitch connection and milestone errors appear only in
+the admin dock, never on the stream. A 429 pauses subscription retries for 60 seconds.
+
+When upgrading from independent listeners, refresh **all** overlay sources (HUD, Chill, AFK,
+Soon, and any duplicates) and the control dock so old connections close. Mixed builds can still
+hit Twitch's connection limit. The shared-listener bus build is `bus-3`.
 
 The Twitch app's redirect URI must be exactly `https://rawad663.github.io/twitch-overlay/`. Tokens last ~60 days and stay in the OBS source URL, never in the repo. An expired token only disables follow alerts and the milestone widget; everything else still works.
 
@@ -150,6 +164,7 @@ Beyond `npm run check`, two browser harnesses run the real exported site (run `n
 | Command | What it proves |
 |---|---|
 | `npm run verify` | Every mode renders, lanes land on their stage coordinates, the canvas paints, the camera hole is really transparent, and the dock drives a live source end to end |
+| `npm run verify:follows` | Four real browser pages share one simulated Twitch connection, hand off on owner close, deliver follows to HUD/Chill, and keep authorization errors off-stream |
 | `npm run compare` | Screenshots this build against the live production site (or `COMPARE_BASE_URL` if set) for every mode and reports the pixel delta into `.verify/compare/` |
 
 `npm run verify:shots` writes PNGs to `.verify/`.
