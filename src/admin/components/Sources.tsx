@@ -44,6 +44,14 @@ export function Sources({ sources }: { sources: Source[] }) {
           })
         )}
       </div>
+      {sources.some((v) => !v.demo && (!v.token || v.eventsub !== "live")) && (
+        <div className={s.verdict} style={{ marginTop: 10 }}>
+          Live follows need EventSub live on the source showing the banner. Test alerts bypass
+          Twitch. If it says no token, expired, or error, use the Milestones authorize URL while
+          signed in as the channel owner, then update that source&rsquo;s OBS URL. Chill needs
+          its own authorized URL too, with <code>mode=chill</code> preserved.
+        </div>
+      )}
       <div style={{ marginTop: 10 }}>
         <Hint>
           This panel only reaches the overlay when opened as an OBS{" "}

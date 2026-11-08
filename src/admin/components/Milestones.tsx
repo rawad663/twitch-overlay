@@ -3,21 +3,9 @@
 import { useEffect, useState } from "react";
 import { CLIENT_ID_KEY, type Settings, type SettingsPatch, type Totals } from "@/bus/types";
 import { readString, writeString } from "@/bus/storage";
-import { OVERLAY_URL } from "@/config/routes";
+import { authorizeUrl, TWITCH_REDIRECT_URL } from "@/config/twitchAuth";
 import s from "../admin.module.css";
 import { Button, Field, Hint, NumberInput, Section } from "./ui";
-
-const AUTH_SCOPES = "moderator:read:followers channel:read:subscriptions";
-
-function authorizeUrl(clientId: string) {
-  const params = new URLSearchParams({
-    client_id: clientId || "YOUR_CLIENT_ID",
-    redirect_uri: OVERLAY_URL(),
-    response_type: "token",
-    scope: AUTH_SCOPES,
-  });
-  return `https://id.twitch.tv/oauth2/authorize?${params}`;
-}
 
 function totalsLine(totals: Totals | null | undefined) {
   if (!totals) return "Waiting for totals from the HUD…";
@@ -151,7 +139,8 @@ export function Milestones({
       <div style={{ marginTop: 10 }}>
         <Hint>
           Lifetime totals, polled from Twitch. Open the authorize URL in a browser — navigating this
-          dock would kill the panel.
+          dock would kill the panel. In your Twitch app settings, the OAuth Redirect URL must be
+          exactly <code>{TWITCH_REDIRECT_URL}</code> (including the trailing slash).
         </Hint>
       </div>
     </Section>
