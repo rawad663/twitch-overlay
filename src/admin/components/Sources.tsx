@@ -27,6 +27,8 @@ function dotClass(irc: string) {
 export function Sources({ sources }: { sources: Source[] }) {
   const expired = sources.some((v) => !v.demo && v.eventsub === "expired");
   const failed = sources.some((v) => !v.demo && v.eventsub === "error");
+  const notices = [...new Set(sources.filter((v) => !v.demo)
+    .flatMap((v) => [v.followNotice, v.twitchNotice]).filter(Boolean))];
   return (
     <Section title="Sources">
       {(expired || failed) && (
@@ -34,8 +36,9 @@ export function Sources({ sources }: { sources: Source[] }) {
           <strong>⚠ {expired ? "Twitch authorization expired" : "Twitch follow alerts unavailable"}</strong>
           <p>
             Live follow alerts are not working on the affected sources, even if chat is connected.
-            Go to Milestones below to authorize Twitch again, then replace those sources&rsquo; OBS URLs.
+            {expired && " Go to Milestones below to authorize Twitch again, then paste and save the new token once for all sources."}
           </p>
+          {notices.map((notice) => <p key={notice}>{notice}</p>)}
         </div>
       )}
       <div>
@@ -51,7 +54,7 @@ export function Sources({ sources }: { sources: Source[] }) {
                 <span className={`${s.meta} ${s.sourceMeta}`}>
                   <span>IRC {v.irc}</span>
                   <span className={unhealthy ? s.sourceError : undefined}>
-                    {unhealthy && "⚠ "}{v.token ? `EventSub ${v.eventsub}` : "no token"}
+                    {unhealthy && "⚠ "}EventSub {v.eventsub}{v.eventsub === "live" && " · shared"}
                   </span>
                   {v.demo && <span>demo</span>}
                 </span>
@@ -60,12 +63,11 @@ export function Sources({ sources }: { sources: Source[] }) {
           })
         )}
       </div>
-      {!expired && !failed && sources.some((v) => !v.demo && (!v.token || v.eventsub !== "live")) && (
+      {!expired && !failed && (notices.length > 0 || sources.some((v) => !v.demo && v.eventsub !== "live")) && (
         <div className={s.verdict} style={{ marginTop: 10 }}>
-          Live follows need EventSub live on the source showing the banner. Test alerts bypass
-          Twitch. If it says no token, expired, or error, use the Milestones authorize URL while
-          signed in as the channel owner, then update that source&rsquo;s OBS URL. Chill needs
-          its own authorized URL too, with <code>mode=chill</code> preserved.
+          {notices.map((notice) => <p key={notice}>{notice}</p>)}
+          One loaded, authorized source connects to Twitch and shares follows with all other sources.
+          Test alerts bypass Twitch. Use Milestones to authorize if no source has a valid token.
         </div>
       )}
       <div style={{ marginTop: 10 }}>

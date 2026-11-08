@@ -151,7 +151,7 @@ export class Bus {
 
     // Prove receipt back to whoever sent it — "nothing happened" should never
     // be a silent question, it should be an answerable one. Only sources ack.
-    if (list.length && this.role && msg.type !== "ping" && msg.type !== "ack") {
+    if (list.length && this.role && msg.type !== "ping" && msg.type !== "ack" && msg.type !== "follow.sync") {
       this.send("ack", { forId: msg.id, forType: msg.type, role: this.role });
     }
   }

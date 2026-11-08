@@ -49,6 +49,8 @@ function sameLive(a: HelloPayload | null, b: HelloPayload | null) {
     a.settings === b.settings &&
     a.irc === b.irc &&
     a.eventsub === b.eventsub &&
+    a.followNotice === b.followNotice &&
+    a.twitchNotice === b.twitchNotice &&
     a.clientId === b.clientId &&
     a.token === b.token &&
     a.demo === b.demo &&

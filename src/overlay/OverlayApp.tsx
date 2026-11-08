@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PRESENCE_KEY, type AlertKind, type HelloPayload, type Settings, type Totals } from "@/bus/types";
 import { BUILD } from "@/bus/types";
 import { writeJSON } from "@/bus/storage";
+import { SharedFollows } from "@/bus/follows";
+import { effectiveCredentials } from "@/bus/credentials";
+import { useCredentialsSnapshot } from "@/bus/useCredentials";
 import { useBus, useInterval, useLatest } from "@/bus/useBus";
 import { CONFIG, DEFAULT_SETTINGS } from "@/config/config";
 import { loadSettings, mergeSettings, persistSettings } from "@/config/settings";
@@ -61,6 +64,8 @@ const IDLE_STATUS: SceneStatus = {
 };
 
 export function OverlayApp({ params }: { params: OverlayParams }) {
+  const storedCredentials = useCredentialsSnapshot();
+  const { token, clientId } = effectiveCredentials(storedCredentials, params);
   const { chill, scene, demo, mode, guide } = params;
   const stageStyle = useStageScale();
   // session start — a useState initializer, so the clock isn't read during render
@@ -72,6 +77,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [banner, setBanner] = useState<AlertEvent | null>(null);
   const [notice, setNotice] = useState("");
+  const [followNotice, setFollowNotice] = useState("");
   const [totals, setTotals] = useState<Totals>(EMPTY_TOTALS);
   const [sceneStatus, setSceneStatus] = useState<SceneStatus | null>(null);
   const [guideOn, setGuideOn] = useState(false);
@@ -382,37 +388,46 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   }, [demo, chill, depsRef]);
 
   useEffect(() => {
-    if (demo || !params.token || !params.clientId) return;
-    const auth = { token: params.token, clientId: params.clientId };
-    const es = new EventSub(
-      auth,
+    if (demo || !bus) return;
+    const auth = { token, clientId };
+    const shared = new SharedFollows(
+      bus,
       CONFIG.channel,
+      !!(auth.token && auth.clientId),
+      (sink) => {
+        const es = new EventSub(auth, CONFIG.channel, sink.follow, sink.status, sink.notice, sink.terminal);
+        void es.start();
+        return () => es.destroy();
+      },
       (u) => alerts.follow(u),
-      setEsStatus,
-      setNotice,
-    );
-    void es.start();
-    return () => es.destroy();
-  }, [demo, params.token, params.clientId, alerts]);
+      (status, detail) => { setEsStatus(status); setFollowNotice(detail); },
+    ).start();
+    return () => shared.destroy();
+  }, [bus, demo, token, clientId, alerts]);
 
   /* Lifetime totals — HUD only. A scene source has no milestone widget, and
      two sources polling would double the API traffic for one number. */
   useEffect(() => {
-    if (scene || demo || !params.token || !params.clientId) return;
+    if (scene || demo) return;
+    setTotals(EMPTY_TOTALS);
+    setNotice("");
+    if (!token || !clientId) return;
+    let active = true;
     const m = new Milestones(
-      { token: params.token, clientId: params.clientId },
+      { token, clientId },
       CONFIG.channel,
-      setTotals,
-      setNotice,
+      (value) => { if (active) setTotals(value); },
+      (value) => { if (active) setNotice(value); },
     );
     milestonesRef.current = m;
     void m.refresh();
     const id = setInterval(() => void m.refresh(), CONFIG.totalsPollSeconds * 1000);
     return () => {
+      active = false;
       clearInterval(id);
       milestonesRef.current = null;
     };
-  }, [scene, demo, params.token, params.clientId]);
+  }, [scene, demo, token, clientId]);
 
   /* ── bus: commands in ── */
   useEffect(() => {
@@ -469,8 +484,10 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       build: BUILD,
       irc: ircStatus,
       eventsub: esStatus,
-      token: !!params.token,
-      clientId: params.clientId,
+      followNotice,
+      twitchNotice: notice,
+      token: !!token,
+      clientId,
       away: {
         state: sc?.state ?? (chill ? "chill" : "idle"),
         until: sc?.until ?? 0,
@@ -489,7 +506,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       clip: clips.snapshot,
     };
     bus.send("hello", payload);
-  }, [bus, scene, mode, demo, ircStatus, esStatus, params, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot]);
+  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot]);
 
   useEffect(() => {
     if (!bus) return;
@@ -547,7 +564,6 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
             <Rail t0={t0} />
             <Strip moon={moon} defs={settings.tallyDefs} counts={tallies.counts} hit={tallies.hit} />
             <Goals totals={totals} settings={settings} suppressed={bannerActive || pollOn} />
-            <div className={`${s.notice} ${notice ? s.on : ""}`}>{notice}</div>
             <Poll poll={poll.poll} />
           </>
         )}

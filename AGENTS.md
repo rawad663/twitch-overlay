@@ -29,9 +29,9 @@ scripts/                verify · compare · diff-shots (Playwright)
 
 ## Hard rules
 
-- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-2"`) only when that contract actually changes.
+- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-3"`) only when that contract actually changes.
 - **The panel must not set `Bus.role`.** Sources set it and auto-ack; if the panel set one it would ack itself and delivery confirmation would be a lie.
-- **Never put tokens or secrets in the repo.** The token is a URL query on the OBS source (`?token=` + `?client_id=`). `CONFIG.clientId` is the public app id only. Scopes: `moderator:read:followers` (follow alerts), `channel:read:subscriptions` (sub milestone). Follower totals work with any valid token.
+- **Never put tokens or secrets in the repo or control-bus messages.** The OBS dock validates and saves the token + public client ID in shared local storage via `src/bus/credentials.ts`. Sources subscribe through `useCredentialsSnapshot`; saved credentials override legacy URL queries (`?token=` + `?client_id=`). Removing credentials stores an empty pair to disable legacy URL tokens too. `CONFIG.clientId` is the public app id only. Scopes: `moderator:read:followers` (follow alerts), `channel:read:subscriptions` (sub milestone). Follower totals work with any valid token.
 - **Ember is gains only** — subs, gifts, raids, big cheers, completed goals. Follows stay violet. Reach it through `--accent-gain`, never `--ember` directly. `vibe.test.ts` enforces it for the mood palettes.
 - **React never renders per frame.** The scene engine owns its own rAF loop and all particle state; it emits a status snapshot at ≤4Hz for the headline. Balloons are their own rAF canvas over the stage, not drawn in the starfield. Anything at 60fps belongs in `engine/`, not in a hook.
 - `basePath` is `/twitch-overlay` — this is a project Pages site and Next's asset URLs are absolute.
@@ -42,7 +42,7 @@ scripts/                verify · compare · diff-shots (Playwright)
 
 ```
 Twitch IRC (justinfan*, tags+commands) ──► parse() ──► handle() ──► HUD / Scene
-EventSub channel.follow (optional token) ──► Alerts.follow()
+One EventSub channel.follow owner (Web Lock) ──► bus follow.sync + storage journal ──► Alerts.follow() on every source
 Helix followers + subscriptions poll 60s ──► Milestones (HUD only)
 admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay sources
 ```
@@ -71,8 +71,10 @@ The moon's timestamp array is the one piece of shared mutable state. `useMoon` t
 | `rawad-tally` | HUD | `{ [key]: count }` |
 | `rawad-settings` | overlay, on panel `settings` | Volume, mute, away goals, milestone targets, `tallyDefs`, `clipsEnabled` |
 | `rawad-clientid` | OAuth helper + dock | Remembered public client id |
+| `rawad-twitch-auth` | dock after Twitch validation | Local-only `{ token, clientId }`; never send in bus messages, diagnostics, or settings; empty pair disables auth |
 | `rawad-clips` | dock (sources persist a copy) | Clip rotation library |
 | `rawad-clip-plays` | overlay | `{ [slug]: { count, lastAt } }` |
+| `rawad-follows-{channel}` | shared follow owner | Status and 30-second / 200-event journal; no tokens |
 
 Every access goes through `src/bus/storage.ts` — OBS can block storage outright and a throw must never take a render down.
 
@@ -81,6 +83,8 @@ Every access goes through `src/bus/storage.ts` — OBS can block storage outrigh
 Panel → sources: `away.brb|soon|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `clips`, `clip.play|stop|resolve`, `ping`.
 
 Sources → panel: `hello` (2s heartbeat, plus HUD-only `totals` and `clip` / `clipPlays`), `ack` `{ forId, forType, role }`, `clip.meta`.
+
+Source → sources: `follow.sync` carries the shared listener status and recent follow events. No auto-ack for this heartbeat. `hello` also carries `followNotice` and `twitchNotice` for admin-only diagnostics. `src/bus/follows.ts` owns cross-source coordination; only the Web Lock holder starts EventSub, and it closes the socket before releasing ownership. Missing lock support fails visibly in the dock instead of creating duplicate sockets.
 
 Every source receives every command on purpose (HUD banner + scene shooting star stay in step). Inapplicable handlers no-op.
 
