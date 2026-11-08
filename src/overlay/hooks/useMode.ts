@@ -46,7 +46,7 @@ export function parseParams(search: string, inOBS: boolean): OverlayParams {
     // Outside OBS, show a backdrop and fake traffic so it can be previewed.
     demo: qs.get("demo") === "1" || (!inOBS && qs.get("live") !== "1"),
     inOBS,
-    // Secrets never live in the repo — the token rides in the OBS source URL.
+    // Legacy URL credentials remain a fallback until the OBS dock saves a token.
     token: qs.get("token") ?? "",
     clientId: qs.get("client_id") ?? CONFIG.clientId,
     muted: qs.get("mute") === "1",

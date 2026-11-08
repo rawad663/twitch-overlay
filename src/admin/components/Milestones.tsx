@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { CLIENT_ID_KEY, type Settings, type SettingsPatch, type Totals } from "@/bus/types";
 import { readString, writeString } from "@/bus/storage";
+import { clearCredentials, parseCredentials, saveCredentials } from "@/bus/credentials";
+import { useCredentialsSnapshot } from "@/bus/useCredentials";
 import { authorizeUrl, TWITCH_REDIRECT_URL } from "@/config/twitchAuth";
+import { validateToken } from "@/config/validateToken";
+import { CONFIG } from "@/config/config";
 import s from "../admin.module.css";
 import { Button, Field, Hint, NumberInput, Section } from "./ui";
 
@@ -39,6 +43,11 @@ export function Milestones({
 }) {
   const [clientId, setClientId] = useState("");
   const [copied, setCopied] = useState(false);
+  const [tokenDraft, setTokenDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState(false);
+  const saved = parseCredentials(useCredentialsSnapshot());
 
   useEffect(() => {
     setClientId(readString(CLIENT_ID_KEY));
@@ -55,6 +64,37 @@ export function Milestones({
   };
 
   const url = authorizeUrl(clientId.trim());
+  const saveToken = async () => {
+    setSaving(true);
+    setMessage("");
+    const result = await validateToken(tokenDraft, CONFIG.channel);
+    setSaving(false);
+    if (!result.ok) {
+      setError(true);
+      setMessage(result.error);
+      return;
+    }
+    if (!saveCredentials(result.auth)) {
+      setError(true);
+      setMessage("OBS blocked local storage. The token was not saved; existing credentials are unchanged.");
+      return;
+    }
+    onClientId(result.auth.clientId);
+    setTokenDraft("");
+    setError(false);
+    setMessage(result.subs
+      ? "Token saved. All loaded overlay sources will reconnect automatically."
+      : "Token saved for follows. Subscription totals need channel:read:subscriptions; authorize again to add it.");
+  };
+
+  const removeToken = () => {
+    const ok = clearCredentials();
+    setError(!ok);
+    setMessage(ok
+      ? "Saved token removed. Twitch authorization is disabled on these sources, including old token URLs."
+      : "OBS blocked local storage. The saved token could not be removed.");
+    if (ok) setTokenDraft("");
+  };
   const needsAuth =
     totals?.subsState === "noscope" ||
     totals?.subsState === "expired" ||
@@ -103,8 +143,7 @@ export function Milestones({
       {needsAuth && (
         <div className={s.verdict} style={{ marginTop: 11 }}>
           Sub totals need a token with <code>channel:read:subscriptions</code>. Copy the URL below,
-          open it in a normal browser (not this dock), then paste the overlay&rsquo;s generated OBS
-          URL into the HUD source.
+          open it in a normal browser (not this dock), then copy the access token and save it below.
         </div>
       )}
 
@@ -119,6 +158,34 @@ export function Milestones({
         value={clientId}
         onChange={(e) => onClientId(e.target.value)}
       />
+      <label className={s.label} htmlFor="authToken">Twitch access token</label>
+      <input
+        id="authToken"
+        type="password"
+        className={s.input}
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={saved?.token ? "Paste a replacement token" : "Paste the token from the authorization page"}
+        value={tokenDraft}
+        onChange={(e) => setTokenDraft(e.target.value)}
+        disabled={saving}
+      />
+      <div className={s.row2} style={{ marginTop: 8 }}>
+        <Button onClick={saveToken} disabled={saving || !tokenDraft.trim()}>
+          {saving ? "Checking Twitch…" : "Save token"}
+        </Button>
+        <Button variant="remove" onClick={removeToken} disabled={saving || !saved?.token}>
+          Remove saved token
+        </Button>
+      </div>
+      <div className={s.hint} style={{ marginTop: 8 }}>
+        {saved?.token ? "A token is saved in this browser profile." : "No token saved in this browser profile."}
+        {" "}Save it in the OBS dock once for every source. It stays on this computer in browser
+        storage, unencrypted, and is never included in control messages or diagnostics.
+        After saving, remove <code>token</code> and <code>client_id</code> from source URLs;
+        keep each source&rsquo;s <code>mode</code>. Saved credentials take priority over old URL tokens.
+      </div>
+      {message && <div role="status" className={error ? s.sourceWarning : s.verdict} style={{ marginTop: 8 }}>{message}</div>}
       <label className={s.label} htmlFor="authUrl">
         Authorize URL
       </label>

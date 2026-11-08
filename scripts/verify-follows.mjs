@@ -22,15 +22,33 @@ const server = createServer(async (req, res) => {
 await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}${base}`;
 const browser = await chromium.launch();
+async function waitFor(check) {
+  const deadline = Date.now() + 10000;
+  while (!check()) {
+    assert.ok(Date.now() < deadline, "timed out waiting for Twitch subscription");
+    await new Promise((done) => setTimeout(done, 50));
+  }
+}
 try {
   const context = await browser.newContext();
   const errors = [];
   context.on("weberror", (event) => errors.push(String(event.error())));
   let subscriptions = 0;
+  const usedTokens = [];
+  await context.route("https://id.twitch.tv/oauth2/validate", async (route) => {
+    const invalid = route.request().headers().authorization === "OAuth invalid-token";
+    await route.fulfill({ status: invalid ? 401 : 200, contentType: "application/json", body: JSON.stringify({
+      client_id: "test-client", user_id: "channel-id", login: "rawad663", expires_in: 3600,
+      scopes: ["moderator:read:followers", "channel:read:subscriptions"],
+    }) });
+  });
   await context.route("https://api.twitch.tv/helix/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const subscription = path.endsWith("/eventsub/subscriptions");
-    if (subscription) subscriptions++;
+    if (subscription) {
+      subscriptions++;
+      usedTokens.push(route.request().headers().authorization);
+    }
     await route.fulfill({
       status: subscription ? 202 : 200,
       contentType: "application/json",
@@ -63,13 +81,20 @@ try {
   });
   const pages = await Promise.all(["hud", "chill", "afk", "soon"].map(async (mode) => {
     const page = await context.newPage();
-    await page.goto(`${origin}/?live=1&mode=${mode}&token=test-token&client_id=test-client`);
+    await page.goto(`${origin}/?live=1&mode=${mode}`);
     return page;
   }));
   const admin = await context.newPage();
   await admin.goto(`${origin}/admin/`);
+  await admin.waitForFunction(() => document.body.innerText.match(/EventSub off/g)?.length === 4);
+  assert.equal(subscriptions, 0, "clean URLs must wait for authorization");
+  await admin.getByLabel("Twitch access token", { exact: true }).fill("test-token");
+  await admin.getByRole("button", { name: "Save token", exact: true }).click();
+  await admin.getByText("Token saved. All loaded overlay sources will reconnect automatically.", { exact: true }).waitFor();
+  assert.equal(await admin.getByLabel("Twitch access token", { exact: true }).inputValue(), "");
   await admin.waitForFunction(() => document.body.innerText.match(/EventSub live · shared/g)?.length === 4);
   assert.equal(subscriptions, 1, "four sources must create one Twitch subscription");
+  assert.equal(usedTokens[0], "Bearer test-token");
   const counts = await Promise.all(pages.map((page) => page.evaluate(() => window.testSockets.filter((s) => s.readyState === 1).length)));
   assert.equal(counts.reduce((a, b) => a + b, 0), 1);
   const ownerIndex = counts.findIndex((count) => count === 1);
@@ -85,6 +110,7 @@ try {
 
   await owner.close();
   const remaining = pages.filter((_, index) => index !== ownerIndex);
+  await waitFor(() => subscriptions >= 2);
   await admin.waitForFunction(() => document.body.innerText.match(/EventSub live · shared/g)?.length === 3);
   assert.equal(subscriptions, 2, "closing the owner must create one replacement subscription");
   const nextCounts = await Promise.all(remaining.map((page) => page.evaluate(() => window.testSockets.filter((s) => s.readyState === 1).length)));
@@ -102,6 +128,37 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log("PASS: authorization errors appear only in the admin, never on the overlay");
+
+  await admin.getByLabel("Twitch access token", { exact: true }).fill("replacement-token");
+  await admin.getByRole("button", { name: "Save token", exact: true }).click();
+  await waitFor(() => usedTokens.at(-1) === "Bearer replacement-token");
+  await admin.waitForFunction(() => document.body.innerText.match(/EventSub live · shared/g)?.length === 3);
+  assert.equal(usedTokens.at(-1), "Bearer replacement-token");
+  assert.equal(subscriptions, 3, "replacing an expired token must start one replacement listener");
+  await admin.getByLabel("Twitch access token", { exact: true }).fill("invalid-token");
+  await admin.getByRole("button", { name: "Save token", exact: true }).click();
+  await admin.getByText("This token has expired or was revoked. Authorize Twitch again.", { exact: true }).waitFor();
+  assert.equal(await admin.evaluate(() => JSON.parse(localStorage.getItem("rawad-twitch-auth")).token), "replacement-token");
+  await admin.reload();
+  assert.equal(await admin.getByLabel("Twitch access token", { exact: true }).inputValue(), "");
+  await admin.getByText(/A token is saved in this browser profile/).waitFor();
+  await remaining[0].reload();
+  await admin.waitForFunction(() => document.body.innerText.match(/EventSub live · shared/g)?.length === 3);
+  assert.ok(remaining.every((page) => !page.url().includes("token=")));
+  assert.equal(await admin.evaluate(() => {
+    const keys = Object.keys(localStorage).filter((key) => key !== "rawad-twitch-auth");
+    return keys.some((key) => /replacement-token|test-token/.test(localStorage.getItem(key)));
+  }), false, "tokens must never enter the bus, settings, or diagnostic storage");
+  console.log("PASS: saved credentials survive reload; renewal reconnects all sources; invalid replacement is rejected");
+
+  await admin.getByRole("button", { name: "Remove saved token", exact: true }).click();
+  await admin.waitForFunction(() => document.body.innerText.match(/EventSub off/g)?.length === 3);
+  for (const page of remaining) {
+    assert.equal(await page.evaluate(() => window.testSockets.filter((s) => s.readyState === 1).length), 0);
+  }
+  assert.equal(await admin.evaluate(() => JSON.parse(localStorage.getItem("rawad-twitch-auth")).token), "");
+  assert.deepEqual(errors, []);
+  console.log("PASS: removing stored credentials disconnects every source without a reload");
 } finally {
   await browser.close();
   await new Promise((done) => server.close(done));

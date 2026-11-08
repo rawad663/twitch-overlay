@@ -121,7 +121,20 @@ Unlike the away scene, **the HUD is not layered on top**, so the alert banner re
 
 IRC covers chat, bits, subs, gifts and raids anonymously. Follow alerts and the HUD lifetime counters need a Twitch app + token.
 
-The dock's **Milestones** section builds the authorize URL. Copy it, open it in a **normal browser** (not the dock), allow, then paste the overlay's generated OBS URL into the HUD browser source.
+The OBS dock's **Milestones** section builds the authorize URL. Copy it, open it in a **normal browser** (not the dock), and authorize as the channel owner. On the landing page choose **Copy token for OBS dock**, then paste it into **Twitch access token** in the OBS dock and select **Save token**. Twitch validates the account and follower permission; the matching public Client ID is filled automatically.
+
+The token is saved once in OBS's shared local storage. Every loaded source reconnects automatically,
+including the HUD's lifetime counters, without editing source URLs. After saving, remove `token`
+and `client_id` from source URLs while keeping `mode` and other settings. When the token expires,
+repeat authorization and save the replacement in the dock once. The password field clears after
+save and never displays the stored token. Browser storage is unencrypted and local to the OBS
+profile; a normal browser tab has separate storage and cannot configure OBS this way.
+
+Existing token URLs remain a fallback until credentials are saved. Saved credentials override
+URL credentials. **Remove saved token** clears the secret and leaves an empty authorization record
+that disables even legacy URL tokens, so removing it cannot silently reactivate an old token.
+Saving a new token reconnects the sources. If storage is blocked, the dock reports the failure;
+it does not claim a successful save. Tokens never enter control messages, settings, or diagnostics.
 
 - `moderator:read:followers` — follow alerts (EventSub)
 - `channel:read:subscriptions` — sub milestone total
@@ -129,12 +142,13 @@ The dock's **Milestones** section builds the authorize URL. Copy it, open it in 
 
 If test follows show but live follows do not, check **Sources → EventSub** in the OBS dock.
 Tests bypass Twitch entirely; working follower totals also do not prove that follow alerts are authorized.
-The source rendering the banner should report `live`. For `no token`, `expired`, or `error`,
-authorize again as the channel owner with the Milestones URL and replace that source's URL.
+The source rendering the banner should report `live`. For `off` or `expired`,
+authorize again as the channel owner with the Milestones URL and save the new token in the dock.
+For `error`, follow the diagnostic message shown there (for example, a connection limit is not a token expiry).
 Follow events are shared by all loaded sources. Only one authorized source connects to Twitch;
-the others receive its events and status without opening more EventSub connections. Keep valid
-tokens on sources that should be able to take over when the current owner closes. The HUD still
-needs its own token for lifetime totals. Preserve each source's `mode` when updating URLs.
+the others receive its events and status without opening more EventSub connections. All sources
+with access to the saved credentials can take over when the current owner closes. The HUD uses
+those same credentials for lifetime totals. Preserve each source's `mode` when updating URLs.
 `connecting` means the listener is connecting or retrying. After deploying a listener fix,
 use **Refresh cache of current page** on the OBS browser sources.
 
@@ -149,7 +163,7 @@ When upgrading from independent listeners, refresh **all** overlay sources (HUD,
 Soon, and any duplicates) and the control dock so old connections close. Mixed builds can still
 hit Twitch's connection limit. The shared-listener bus build is `bus-3`.
 
-The Twitch app's redirect URI must be exactly `https://rawad663.github.io/twitch-overlay/`. Tokens last ~60 days and stay in the OBS source URL, never in the repo. An expired token only disables follow alerts and the milestone widget; everything else still works.
+The Twitch app's redirect URI must be exactly `https://rawad663.github.io/twitch-overlay/`. Tokens expire and must be renewed; they live only in the OBS profile or legacy source URLs, never in the repo. An expired token only disables follow alerts and the milestone widget; everything else still works.
 
 ## Deploying
 
@@ -164,7 +178,7 @@ Beyond `npm run check`, two browser harnesses run the real exported site (run `n
 | Command | What it proves |
 |---|---|
 | `npm run verify` | Every mode renders, lanes land on their stage coordinates, the canvas paints, the camera hole is really transparent, and the dock drives a live source end to end |
-| `npm run verify:follows` | Four real browser pages share one simulated Twitch connection, hand off on owner close, deliver follows to HUD/Chill, and keep authorization errors off-stream |
+| `npm run verify:follows` | Four clean-URL pages share one simulated Twitch connection, hand off on owner close, and keep errors off-stream; dock token save, renewal, persistence, invalid replacement, and removal work across all sources |
 | `npm run compare` | Screenshots this build against the live production site (or `COMPARE_BASE_URL` if set) for every mode and reports the pixel delta into `.verify/compare/` |
 
 `npm run verify:shots` writes PNGs to `.verify/`.

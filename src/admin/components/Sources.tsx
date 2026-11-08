@@ -36,7 +36,7 @@ export function Sources({ sources }: { sources: Source[] }) {
           <strong>⚠ {expired ? "Twitch authorization expired" : "Twitch follow alerts unavailable"}</strong>
           <p>
             Live follow alerts are not working on the affected sources, even if chat is connected.
-            {expired && " Go to Milestones below to authorize Twitch again, then update your sources and refresh them."}
+            {expired && " Go to Milestones below to authorize Twitch again, then paste and save the new token once for all sources."}
           </p>
           {notices.map((notice) => <p key={notice}>{notice}</p>)}
         </div>
