@@ -127,6 +127,14 @@ The dock's **Milestones** section builds the authorize URL. Copy it, open it in 
 - `channel:read:subscriptions` — sub milestone total
 - Follower totals work with any valid token, even without those scopes
 
+If test follows show but live follows do not, check **Sources → EventSub** in the OBS dock.
+Tests bypass Twitch entirely; working follower totals also do not prove that follow alerts are authorized.
+The source rendering the banner should report `live`. For `no token`, `expired`, or `error`,
+authorize again as the channel owner with the Milestones URL and replace that source's URL.
+The Chill source needs the token and client ID too; preserve `mode=chill` when updating it.
+`connecting` means the listener is connecting or retrying. After deploying a listener fix,
+use **Refresh cache of current page** on the OBS browser sources.
+
 The Twitch app's redirect URI must be exactly `https://rawad663.github.io/twitch-overlay/`. Tokens last ~60 days and stay in the OBS source URL, never in the repo. An expired token only disables follow alerts and the milestone widget; everything else still works.
 
 ## Deploying
