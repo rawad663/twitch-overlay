@@ -3,11 +3,14 @@
  * source with a cold cache would otherwise miss the first alert of a stream
  * while it fetched an mp3, and the repo stays text-only.
  *
- * Follows, welcomes, small cheers and system notices are deliberately silent —
- * they happen often enough that a sound would become noise.
+ * Welcomes and system notices stay silent; alert cues follow the banner queue
+ * so a burst of merged follows plays one cue instead of overlapping chimes.
  */
+export type AlertSound = "follow" | "sub" | "gift" | "massgift" | "raid" | "cheer";
+
 export class Sound {
   private ctx: AudioContext | null = null;
+  private followVisible = true;
   vol: number;
   muted: boolean;
 
@@ -20,6 +23,10 @@ export class Sound {
   configure(volume: number, muted: boolean) {
     this.vol = volume;
     this.muted = muted;
+  }
+
+  setFollowVisible(visible: boolean) {
+    this.followVisible = visible;
   }
 
   /** Browsers refuse to start audio without a gesture; call this from one. */
@@ -66,13 +73,21 @@ export class Sound {
     osc.stop(at + dur + 0.02);
   }
 
-  play(name: "sub" | "gift" | "massgift" | "raid" | "cheer") {
+  play(name: AlertSound) {
     if (this.muted) return;
+    if (name === "follow" && (!this.followVisible || document.hidden)) return;
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime + 0.02;
 
     switch (name) {
+      case "follow":
+        // A bright rising triad with an octave shimmer, distinct from paid alerts.
+        this.bell(ctx, 659.25, t, 0.38, 0.36);
+        this.bell(ctx, 880, t + 0.12, 0.42, 0.34);
+        this.bell(ctx, 1318.51, t + 0.24, 0.7, 0.32);
+        this.bell(ctx, 2637.02, t + 0.25, 0.45, 0.07);
+        break;
       case "sub":
         this.bell(ctx, 523.25, t, 0.5, 0.3);
         this.bell(ctx, 783.99, t + 0.09, 0.6, 0.26);
