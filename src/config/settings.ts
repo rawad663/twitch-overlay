@@ -61,6 +61,9 @@ export function mergeSettings(current: Settings, patch: SettingsPatch | null | u
   if (!patch) return current;
   const next: Settings = { ...current };
 
+  if (typeof patch.labSummary === "string") next.labSummary = patch.labSummary.replace(/\s+/g, " ").trim().slice(0, 400);
+  if (typeof patch.labDate === "string") next.labDate = /^\d{4}-\d{2}-\d{2}$/.test(patch.labDate) ? patch.labDate : "";
+
   if (typeof patch.volume === "number") {
     next.volume = Math.max(0, Math.min(1, patch.volume));
   }

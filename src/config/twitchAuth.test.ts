@@ -15,7 +15,7 @@ it.each([
   expect(url.searchParams.get("client_id")).toBe("public-client-id");
   expect(url.searchParams.get("response_type")).toBe("token");
   expect(url.searchParams.get("scope")?.split(" ")).toEqual([
-    "moderator:read:followers", "channel:read:subscriptions",
+    "moderator:read:followers", "channel:read:subscriptions", "user:write:chat",
   ]);
   expect(url.href).not.toContain("rawad-overlay.html");
 });

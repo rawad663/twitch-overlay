@@ -199,3 +199,12 @@ Beyond `npm run check`, two browser harnesses run the real exported site (run `n
 ## Architecture
 
 See [CLAUDE.md](CLAUDE.md) for the module map, the control-bus contract and the design rules.
+
+## Lab command
+
+In the OBS admin dock, set **Today's lab**, choose its Eastern date, and **Save lab**.
+**Clear lab**, an empty summary, or any other date makes `!lab` return the Mon/Wed/Thu 7–10 PM Eastern schedule. Summaries are limited to 400 characters; the preview shows the current reply.
+
+Reauthorize Twitch using the Milestones authorization URL and save the new token in the dock. The added `user:write:chat` permission lets the overlay reply as rawad663. Existing follow/sub permissions are retained. Lab status appears in the lab section; tokens never enter the control bus.
+
+Refresh the cache of every OBS source and the dock after deploying (bus-4). Keep at least one overlay source loaded. HUD, Lounge and away scenes advertise `!lab`; a shared browser lock and persisted 15-second cooldown prevent multiple sources answering together. If locks or storage are unavailable, replies fail closed. No backend or StreamElements command is required. Disable any existing StreamElements `!lab` to avoid two responders.

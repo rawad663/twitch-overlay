@@ -7,7 +7,7 @@ export function authorizeUrl(clientId: string): string {
     client_id: clientId.trim() || "YOUR_CLIENT_ID",
     redirect_uri: TWITCH_REDIRECT_URL,
     response_type: "token",
-    scope: "moderator:read:followers channel:read:subscriptions",
+    scope: "moderator:read:followers channel:read:subscriptions user:write:chat",
   });
   return `https://id.twitch.tv/oauth2/authorize?${params}`;
 }

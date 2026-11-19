@@ -169,6 +169,8 @@ async function main() {
 
     const guide = await page.$('[class*="scGuide"]');
     check("chill shows the command guide", guide !== null);
+    const cardsFit = await page.locator('[class*="scGuideList"] > div').evaluateAll(cards => cards.some(card => card.textContent.includes('!lab')) && cards.length >= 6 && cards.length <= 7 && cards.every(card => { const r = card.getBoundingClientRect(); return r.x >= 760 && r.right <= 1861 && r.bottom <= 1030; }));
+    check('Lounge command cards fit safe area including !lab', cardsFit);
 
     if (SHOTS) await page.screenshot({ path: join(ROOT, ".verify", "chill.png") });
     await page.close();
@@ -207,6 +209,19 @@ async function main() {
     // the Milestones card also uses .verdict — take the one in Diagnostics
     const verdict = (await admin.locator('[class*="verdict"]').last().textContent())?.trim() ?? "";
     check("diagnostics verdict is Working", verdict.startsWith("Working"), verdict.slice(0, 60));
+
+    await admin.fill('#labSummary', 'Compare two builds');
+    await admin.getByRole('button', { name: 'Save lab', exact: true }).click();
+    await admin.waitForTimeout(1000);
+    check('lab save reaches overlay and persists', await hud.evaluate(() => JSON.parse(localStorage.getItem('rawad-settings')).labSummary === 'Compare two builds'));
+    check('HUD advertises active lab', (await hud.locator('[class*="quietHint"]').textContent()).includes('experiment'));
+    await admin.fill('#labDate', '2020-01-01');
+    await admin.getByRole('button', { name: 'Save lab', exact: true }).click();
+    await admin.waitForTimeout(1000);
+    check('expired lab shows schedule in HUD', (await hud.locator('[class*="quietHint"]').textContent()).includes('schedule'));
+    await admin.getByRole('button', { name: 'Clear lab', exact: true }).click();
+    await admin.waitForTimeout(1000);
+    check('clear lab persists empty summary', await hud.evaluate(() => JSON.parse(localStorage.getItem('rawad-settings')).labSummary === ''));
 
     // Watch every banner the HUD shows: demo traffic keeps firing fates, so a
     // single read after the fact races the queue rather than testing it.

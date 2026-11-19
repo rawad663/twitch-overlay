@@ -10,14 +10,16 @@ function Prompt({
   mode,
   chill,
   hushed,
+  labActive = false,
   clipsOn,
 }: {
   mode: string;
   chill: boolean;
   hushed: boolean;
+  labActive?: boolean;
   clipsOn: boolean;
 }) {
-  const prompts = promptsFor(mode, chill, clipsOn);
+  const prompts = promptsFor(mode, chill, clipsOn, labActive);
   const [i, setI] = useState(0);
   const [out, setOut] = useState(false);
 
@@ -53,6 +55,7 @@ export function SceneLayer({
   mode,
   chill,
   guideOn,
+  labActive = false,
   clipsOn,
   clipPlaying,
   onCanvas,
@@ -61,6 +64,7 @@ export function SceneLayer({
   mode: string;
   chill: boolean;
   guideOn: boolean;
+  labActive?: boolean;
   clipsOn: boolean;
   clipPlaying: boolean;
   onCanvas: (el: HTMLCanvasElement | null) => void;
@@ -105,13 +109,13 @@ export function SceneLayer({
           </>
         )}
 
-        <Prompt mode={mode} chill={chill} hushed={(chill && guideOn) || clipPlaying} clipsOn={clipsOn} />
+        <Prompt labActive={labActive} mode={mode} chill={chill} hushed={(chill && guideOn) || clipPlaying} clipsOn={clipsOn} />
 
         {chill && (
           <div className={`${s.scGuide} ${guideOn ? s.on : ""}`}>
             <div className={s.scGuideLabel}>Chat commands</div>
             <div className={s.scGuideList}>
-              {commandsFor(clipsOn).map((c) => (
+              {commandsFor(clipsOn, labActive).map((c) => (
                 <div key={c.c} className={s.cmd}>
                   <span className={s.c}>{c.c}</span>
                   <span className={s.d}>{c.d}</span>

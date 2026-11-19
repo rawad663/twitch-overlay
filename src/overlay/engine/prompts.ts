@@ -52,11 +52,11 @@ export const CHILL_COMMANDS = [
   { c: "!fatepoe", d: "Ask the moon about Wraeclast" },
 ];
 
-export function promptsFor(mode: string, chill: boolean, clipsOn = true) {
+export function promptsFor(mode: string, chill: boolean, clipsOn = true, labActive = false) {
   const all = chill ? CHILL_PROMPTS : mode === "soon" ? SOON_PROMPTS : AWAY_PROMPTS;
-  return clipsOn ? all : all.filter((p) => !p.includes("!clip"));
+  return [`Type <b>!lab</b> — ${labActive ? "today’s experiment" : "lab schedule"} in chat`, ...(clipsOn ? all : all.filter((p) => !p.includes("!clip")))];
 }
 
-export function commandsFor(clipsOn: boolean) {
-  return clipsOn ? CHILL_COMMANDS : CHILL_COMMANDS.filter((c) => c.c !== "!clip");
+export function commandsFor(clipsOn: boolean, labActive = false) {
+  return [{ c: "!lab", d: labActive ? "Today’s experiment in chat" : "Lab schedule in chat" }, ...(clipsOn ? CHILL_COMMANDS : CHILL_COMMANDS.filter((c) => c.c !== "!clip"))];
 }

@@ -93,6 +93,8 @@ export const DEFAULT_TALLY_DEFS: TallyDef[] = [
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
+  labSummary: "",
+  labDate: "",
   volume: CONFIG.volume,
   muted: false,
   goalFollows: CONFIG.goalFollows,

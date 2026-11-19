@@ -32,6 +32,8 @@ import {
 } from "./engine/session";
 import type { SceneStatus } from "./engine/types";
 import { Irc, type IrcStatus } from "./chat/irc";
+import { LabChat } from "./chat/lab";
+import { labActive } from "@/config/lab";
 import { handle } from "./chat/handle";
 import type { BalloonGlyph } from "./chat/emotes";
 import { EventSub, type EventSubStatus } from "./twitch/eventsub";
@@ -76,6 +78,11 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
 
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [banner, setBanner] = useState<AlertEvent | null>(null);
+  const [labNotice, setLabNotice] = useState("");
+  const labChat = useRef<LabChat | null>(null);
+  const [labNow, setLabNow] = useState(() => new Date());
+  useInterval(() => setLabNow(new Date()), 1000);
+  const activeLab = labActive(settings, labNow);
   const [notice, setNotice] = useState("");
   const [followNotice, setFollowNotice] = useState("");
   const [totals, setTotals] = useState<Totals>(EMPTY_TOTALS);
@@ -375,6 +382,14 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   // dispatch table through a ref rather than being torn down per keystroke.
   const depsRef = useLatest(deps);
 
+  useEffect(() => {
+    if (demo) return;
+    const responder = new LabChat({ token, clientId }, CONFIG.channel, setLabNotice);
+    labChat.current = responder;
+    void responder.start();
+    return () => { responder.destroy(); labChat.current = null; };
+  }, [demo, token, clientId]);
+
   /* ── live connections (or demo traffic) ── */
   useEffect(() => {
     if (demo) {
@@ -386,7 +401,10 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       });
     }
 
-    const irc = new Irc((m) => handle(m, depsRef.current), setIrcStatus);
+    const irc = new Irc((m) => {
+      if (m.kind === "chat" && m.msg.trim().toLowerCase() === "!lab") void labChat.current?.reply();
+      handle(m, depsRef.current);
+    }, setIrcStatus);
     irc.connect();
     return () => irc.destroy();
   }, [demo, chill, depsRef]);
@@ -488,6 +506,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       build: BUILD,
       irc: ircStatus,
       eventsub: esStatus,
+      labNotice,
       followNotice,
       twitchNotice: notice,
       token: !!token,
@@ -510,7 +529,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       clip: clips.snapshot,
     };
     bus.send("hello", payload);
-  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot]);
+  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, labNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot]);
 
   useEffect(() => {
     if (!bus) return;
@@ -566,7 +585,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         {!scene && (
           <>
             <Rail t0={t0} />
-            <Strip moon={moon} defs={settings.tallyDefs} counts={tallies.counts} hit={tallies.hit} />
+            <Strip labActive={activeLab} moon={moon} defs={settings.tallyDefs} counts={tallies.counts} hit={tallies.hit} />
             <Goals totals={totals} settings={settings} suppressed={bannerActive || pollOn} />
             <Poll poll={poll.poll} />
           </>
@@ -580,6 +599,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
             mode={mode}
             chill={chill}
             guideOn={guideOn}
+            labActive={activeLab}
             clipsOn={clips.clipsOn}
             clipPlaying={!!clips.playing}
             onCanvas={onCanvas}

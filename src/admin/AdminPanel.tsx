@@ -17,6 +17,8 @@ import { Alerts } from "./components/Alerts";
 import { SoundGoals } from "./components/SoundGoals";
 import { Milestones } from "./components/Milestones";
 import { Diagnostics } from "./components/Diagnostics";
+import { Lab } from "./components/Lab";
+import { mergeSettings } from "@/config/settings";
 import { Clips } from "./components/Clips";
 
 export function AdminPanel() {
@@ -114,6 +116,8 @@ export function AdminPanel() {
           send={away}
           disabled={!connected}
         />
+
+        <Lab key={`${settings.labDate}:${settings.labSummary}`} settings={settings} disabled={!connected} notice={live?.labNotice} save={(p) => { setSettings(cur => mergeSettings(cur, p)); send("settings", p, "Lab saved"); }} />
 
         <Tallies
           defs={settings.tallyDefs}

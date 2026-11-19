@@ -16,7 +16,7 @@ export const CLIPS_KEY = "rawad-clips";
 export const CLIP_PLAYS_KEY = "rawad-clip-plays";
 
 /** Bumped only when the send/deliver contract changes. Shown in diagnostics. */
-export const BUILD = "bus-3";
+export const BUILD = "bus-4";
 
 export type FollowStatus = "off" | "connecting" | "live" | "expired" | "error";
 export type FollowSnapshot = {
@@ -36,6 +36,8 @@ export type TallyCounts = Record<string, number>;
 
 /** Settings the panel owns and the overlay persists. */
 export type Settings = {
+  labSummary: string;
+  labDate: string;
   volume: number;
   muted: boolean;
   goalFollows: number;
@@ -112,6 +114,7 @@ export type HelloPayload = {
   build: string;
   irc: string;
   eventsub: string;
+  labNotice?: string;
   followNotice?: string;
   twitchNotice?: string;
   token: boolean;
