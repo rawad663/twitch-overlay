@@ -62,6 +62,8 @@ export function mergeSettings(current: Settings, patch: SettingsPatch | null | u
   const next: Settings = { ...current };
 
   if (typeof patch.labSummary === "string") next.labSummary = patch.labSummary.replace(/\s+/g, " ").trim().slice(0, 400);
+  if (typeof patch.labTitle === "string") next.labTitle = patch.labTitle.replace(/\s+/g, " ").trim().slice(0, 80);
+  if (patch.labKind === "" || patch.labKind === "play" || patch.labKind === "dev") next.labKind = patch.labKind;
   if (typeof patch.labDate === "string") next.labDate = /^\d{4}-\d{2}-\d{2}$/.test(patch.labDate) ? patch.labDate : "";
 
   if (typeof patch.volume === "number") {

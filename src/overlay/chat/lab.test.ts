@@ -62,3 +62,10 @@ it("disables sending after expired authorization and never sends after teardown"
   a.destroy(); await a.reply(); expect(send).toHaveBeenCalledTimes(1);
 });
 
+
+it("cleans the card headline and only accepts known lab kinds", () => {
+  const s = mergeSettings(DEFAULT_SETTINGS, { labTitle: `  Can it\n clear ${"x".repeat(100)}`, labKind: "dev" });
+  expect(s.labTitle.startsWith("Can it clear x")).toBe(true); expect(s.labTitle.length).toBe(80); expect(s.labKind).toBe("dev");
+  expect(mergeSettings(s, { labKind: "boss" as never }).labKind).toBe("dev");
+  expect(mergeSettings(s, { volume: 0.2 }).labTitle).toBe(s.labTitle);
+});

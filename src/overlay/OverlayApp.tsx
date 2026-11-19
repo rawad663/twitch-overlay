@@ -42,6 +42,7 @@ import { startDemo } from "./demo";
 
 import { Rail } from "./components/Rail";
 import { Strip } from "./components/Strip";
+import { LabCard } from "./components/LabCard";
 import { Goals } from "./components/Goals";
 import { Poll } from "./components/Poll";
 import { Oracle } from "./components/Oracle";
@@ -585,7 +586,8 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         {!scene && (
           <>
             <Rail t0={t0} />
-            <Strip labActive={activeLab} moon={moon} defs={settings.tallyDefs} counts={tallies.counts} hit={tallies.hit} />
+            <LabCard active={activeLab} settings={settings} />
+            <Strip moon={moon} defs={settings.tallyDefs} counts={tallies.counts} hit={tallies.hit} />
             <Goals totals={totals} settings={settings} suppressed={bannerActive || pollOn} />
             <Poll poll={poll.poll} />
           </>

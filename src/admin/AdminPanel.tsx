@@ -117,7 +117,7 @@ export function AdminPanel() {
           disabled={!connected}
         />
 
-        <Lab key={`${settings.labDate}:${settings.labSummary}`} settings={settings} disabled={!connected} notice={live?.labNotice} save={(p) => { setSettings(cur => mergeSettings(cur, p)); send("settings", p, "Lab saved"); }} />
+        <Lab key={`${settings.labDate}:${settings.labSummary}:${settings.labTitle}:${settings.labKind}`} settings={settings} disabled={!connected} notice={live?.labNotice} save={(p) => { setSettings(cur => mergeSettings(cur, p)); send("settings", p, "Lab saved"); }} />
 
         <Tallies
           defs={settings.tallyDefs}

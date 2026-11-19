@@ -34,10 +34,15 @@ export type TallyDef = { key: string; label: string };
 
 export type TallyCounts = Record<string, number>;
 
+export type LabKind = "" | "play" | "dev";
+
 /** Settings the panel owns and the overlay persists. */
 export type Settings = {
   labSummary: string;
   labDate: string;
+  /** Short headline for the HUD lab card; the chat reply uses labSummary. */
+  labTitle: string;
+  labKind: LabKind;
   volume: number;
   muted: boolean;
   goalFollows: number;

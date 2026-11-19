@@ -202,7 +202,7 @@ See [CLAUDE.md](CLAUDE.md) for the module map, the control-bus contract and the 
 
 ## Lab command
 
-In the OBS admin dock, set **Today's lab**, choose its Eastern date, and **Save lab**.
+In the OBS admin dock, set **Today's lab**, choose its Eastern date, and **Save lab**. On that date the HUD shows a lab card in the top right (between PoE2's boss bar and the minimap): the lab kind, the **Card headline**, the summary clamped to two lines, and a `!lab` prompt for newcomers. Any other date hides it.
 **Clear lab**, an empty summary, or any other date makes `!lab` return the Mon/Wed/Thu 7–10 PM Eastern schedule. Summaries are limited to 400 characters; the preview shows the current reply.
 
 Reauthorize Twitch using the Milestones authorization URL and save the new token in the dock. The added `user:write:chat` permission lets the overlay reply as rawad663. Existing follow/sub permissions are retained. Lab status appears in the lab section; tokens never enter the control bus.

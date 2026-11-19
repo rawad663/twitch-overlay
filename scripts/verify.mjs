@@ -210,15 +210,21 @@ async function main() {
     const verdict = (await admin.locator('[class*="verdict"]').last().textContent())?.trim() ?? "";
     check("diagnostics verdict is Working", verdict.startsWith("Working"), verdict.slice(0, 60));
 
+    await admin.fill('#labTitle', 'Can a 1-div build clear T15?');
     await admin.fill('#labSummary', 'Compare two builds');
     await admin.getByRole('button', { name: 'Save lab', exact: true }).click();
     await admin.waitForTimeout(1000);
     check('lab save reaches overlay and persists', await hud.evaluate(() => JSON.parse(localStorage.getItem('rawad-settings')).labSummary === 'Compare two builds'));
-    check('HUD advertises active lab', (await hud.locator('[class*="quietHint"]').textContent()).includes('experiment'));
+    const card = hud.locator('[class*="labCard"]');
+    check('lab card shows headline and summary', /1-div build/.test(await card.textContent()) && (await card.evaluate(el => getComputedStyle(el).opacity)) !== '0');
+    const box = await card.boundingBox();
+    check('lab card stays between boss bar and minimap', !!box && box.x >= 1250 && box.x + box.width <= 1630 && box.y + box.height <= 190, box ? `x${Math.round(box.x)} w${Math.round(box.width)} h${Math.round(box.height)}` : 'no box');
+    check('strip hint is !fate again', (await hud.locator('[class*="quietHint"]').textContent()).includes('!fate'));
     await admin.fill('#labDate', '2020-01-01');
     await admin.getByRole('button', { name: 'Save lab', exact: true }).click();
     await admin.waitForTimeout(1000);
-    check('expired lab shows schedule in HUD', (await hud.locator('[class*="quietHint"]').textContent()).includes('schedule'));
+    await hud.waitForTimeout(700);
+    check('expired lab hides the card', (await hud.locator('[class*="labCard"]').evaluate(el => getComputedStyle(el).opacity)) === '0');
     await admin.getByRole('button', { name: 'Clear lab', exact: true }).click();
     await admin.waitForTimeout(1000);
     check('clear lab persists empty summary', await hud.evaluate(() => JSON.parse(localStorage.getItem('rawad-settings')).labSummary === ''));

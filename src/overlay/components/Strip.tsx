@@ -11,13 +11,11 @@ import s from "../overlay.module.css";
  * (~x1050), which is why it is only 520px wide.
  */
 export function Strip({
-  labActive = false,
   moon,
   defs,
   counts,
   hit,
 }: {
-  labActive?: boolean;
   moon: MoonState;
   defs: TallyDef[];
   counts: TallyCounts;
@@ -67,8 +65,8 @@ export function Strip({
         <div className={s.track}>
           <div className={s.fill} style={{ width: `${moon.p * 100}%` }} />
         </div>
-        <div className={`${s.quietHint} ${s.cap} ${s.show}`}>
-          <b>!lab</b> · {labActive ? "Today’s experiment" : "Lab schedule"}
+        <div className={`${s.quietHint} ${s.cap} ${moon.hint ? s.show : ""}`}>
+          The moon awaits — type <b>!fate</b>
         </div>
       </div>
 
