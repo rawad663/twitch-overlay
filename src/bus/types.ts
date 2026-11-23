@@ -14,9 +14,10 @@ export const TALLY_KEY = "rawad-tally";
 export const CLIENT_ID_KEY = "rawad-clientid";
 export const CLIPS_KEY = "rawad-clips";
 export const CLIP_PLAYS_KEY = "rawad-clip-plays";
+export const CARDS_KEY = "rawad-cards";
 
 /** Bumped only when the send/deliver contract changes. Shown in diagnostics. */
-export const BUILD = "bus-4";
+export const BUILD = "bus-5";
 
 export type FollowStatus = "off" | "connecting" | "live" | "expired" | "error";
 export type FollowSnapshot = {
@@ -82,6 +83,61 @@ export type ClipPlays = Record<string, ClipPlayRecord>;
 
 export type ClipSnapshot = { slug: string; until: number } | null;
 
+/** How a support card arranges its art around the text. */
+export type CardLayout = "tile" | "art" | "row";
+
+/**
+ * One picture on a card. `src` is one of:
+ *   lib:<name>        shipped in public/cards/ (always loads in OBS)
+ *   up:<id>           uploaded in the dock, kept in IndexedDB on this PC
+ *   twitch:sub:<ver>  the channel's own subscriber badge, read from Helix
+ *   https://…         any image URL (Twitch emote CDN and the like)
+ */
+export type CardImage = { src: string; label: string };
+
+/** Every condition that is set must hold; an empty one doesn't restrict. */
+export type CardWhen = {
+  /** "" any stream · "any" any lab night · or one lab kind */
+  labs: "" | "any" | "play" | "dev";
+  /** 0 = Sunday … 6 = Saturday, Eastern. Empty means every day. */
+  days: number[];
+  /** YYYY-MM-DD Eastern, inclusive. Empty means open-ended. */
+  from: string;
+  until: string;
+};
+
+export type SupportCard = {
+  id: string;
+  enabled: boolean;
+  layout: CardLayout;
+  kicker: string;
+  title: string;
+  /** `**word**` renders bold. Nothing else is markup. */
+  body: string;
+  /** Small link line under the body, e.g. pathofexile.com/twitchdrops */
+  url: string;
+  images: CardImage[];
+  /** Vertical focus of the art layout's image, 0 top … 100 bottom. */
+  focus: number;
+  when: CardWhen;
+};
+
+export type CardLibrary = {
+  v: 1;
+  /** Master switch: off hides the card entirely. */
+  on: boolean;
+  /** Paused holds whichever card is up. */
+  paused: boolean;
+  seconds: number;
+  /** Top-left of the 320×176 card on the stage. */
+  x: number;
+  y: number;
+  cards: SupportCard[];
+};
+
+/** What the HUD is showing, for the dock's "on air" line. */
+export type CardSnapshot = { id: string; until: number; eligible: number; hidden: boolean } | null;
+
 /**
  * The panel deliberately sends a PARTIAL settings object — it has no UI for
  * brbMinutes / fullMoonMessages / bigCheer, and applySettings only overwrites
@@ -132,6 +188,8 @@ export type HelloPayload = {
   totals?: Totals;
   clipPlays: Record<string, number>;
   clip: ClipSnapshot;
+  /** HUD only — scene sources don't mount the support card. */
+  card?: CardSnapshot;
 };
 
 export type AckPayload = { forId: string; forType: string; role?: BusRole };
@@ -179,6 +237,9 @@ export type BusPayloads = {
     duration: number;
     thumb: string;
   };
+  cards: { library: CardLibrary };
+  "card.show": { id: string };
+  "card.next": Record<string, never>;
   ping: Record<string, never>;
   hello: HelloPayload;
   ack: AckPayload;

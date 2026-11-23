@@ -29,7 +29,7 @@ scripts/                verify · compare · diff-shots (Playwright)
 
 ## Hard rules
 
-- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-3"`) only when that contract actually changes.
+- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-5"`) only when that contract actually changes.
 - **The panel must not set `Bus.role`.** Sources set it and auto-ack; if the panel set one it would ack itself and delivery confirmation would be a lie.
 - **Never put tokens or secrets in the repo or control-bus messages.** The OBS dock validates and saves the token + public client ID in shared local storage via `src/bus/credentials.ts`. Sources subscribe through `useCredentialsSnapshot`; saved credentials override legacy URL queries (`?token=` + `?client_id=`). Removing credentials stores an empty pair to disable legacy URL tokens too. `CONFIG.clientId` is the public app id only. Scopes: `moderator:read:followers` (follow alerts), `channel:read:subscriptions` (sub milestone). Follower totals work with any valid token.
 - **Ember is gains only** — subs, gifts, raids, big cheers, completed goals. Follows stay violet. Reach it through `--accent-gain`, never `--ember` directly. `vibe.test.ts` enforces it for the mood palettes.
@@ -58,6 +58,12 @@ admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay 
 - **Vibe** — chill-only ambience. Intensity from the shared `beats` array; mood from a keyword tally that decays on a 2s timer and eases per frame. Counts words and discards them — chat text never reaches the canvas.
 - **Demo** — `!window.obsstudio && ?live !== 1`, or `?demo=1`. Fake traffic, no IRC.
 
+### Support cards
+
+`src/overlay/cards/` — a rotating 320×176 card on the HUD that asks for subs. The dock owns the library (`rawad-cards`) and sends it whole as `cards`; `card.show` forces one card up for a full turn, `card.next` skips. `rotation.ts` is pure: a card shows when every condition it sets holds (lab kind, weekdays, date range, Eastern). Lab nights come from the dock's lab for today, else the standing schedule (play Mon/Thu, dev Wed).
+
+Images are references, never inline data: `lib:<name>` (shipped in `public/cards/`; the repo is public, so only art Rawad owns goes there), `up:<id>` (dock uploads, shrunk to 480px WebP and kept in **IndexedDB** `rawad-cards`, not localStorage, which they would fill), `twitch:sub:<version>` (the channel's sub badges from Helix `chat/badges`, no scope), or an `https://` URL. `validImageSrc` drops anything else. Uploads exist only in the OBS profile, so the dock has a copy/restore backup. No ember on the card: asking for a sub is not a gain.
+
 ### The `beats` array
 
 The moon's timestamp array is the one piece of shared mutable state. `useMoon` trims it **in place** and never reassigns it, because the scene engine and Vibe both hold a reference — swapping the array would leave them reading a frozen copy forever.
@@ -74,15 +80,16 @@ The moon's timestamp array is the one piece of shared mutable state. `useMoon` t
 | `rawad-twitch-auth` | dock after Twitch validation | Local-only `{ token, clientId }`; never send in bus messages, diagnostics, or settings; empty pair disables auth |
 | `rawad-clips` | dock (sources persist a copy) | Clip rotation library |
 | `rawad-clip-plays` | overlay | `{ [slug]: { count, lastAt } }` |
+| `rawad-cards` | dock (sources persist a copy) | Support card library: `{ v, on, paused, seconds, x, y, cards }` |
 | `rawad-follows-{channel}` | shared follow owner | Status and 30-second / 200-event journal; no tokens |
 
 Every access goes through `src/bus/storage.ts` — OBS can block storage outright and a throw must never take a render down.
 
 ### Bus types
 
-Panel → sources: `away.brb|soon|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `clips`, `clip.play|stop|resolve`, `ping`.
+Panel → sources: `away.brb|soon|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `clips`, `clip.play|stop|resolve`, `cards`, `card.show|next`, `ping`.
 
-Sources → panel: `hello` (2s heartbeat, plus HUD-only `totals` and `clip` / `clipPlays`), `ack` `{ forId, forType, role }`, `clip.meta`.
+Sources → panel: `hello` (2s heartbeat, plus HUD-only `totals`, `card`, and `clip` / `clipPlays`), `ack` `{ forId, forType, role }`, `clip.meta`.
 
 Source → sources: `follow.sync` carries the shared listener status and recent follow events. No auto-ack for this heartbeat. `hello` also carries `followNotice` and `twitchNotice` for admin-only diagnostics. `src/bus/follows.ts` owns cross-source coordination; only the Web Lock holder starts EventSub, and it closes the socket before releasing ownership. Missing lock support fails visibly in the dock instead of creating duplicate sockets.
 
@@ -98,7 +105,7 @@ Tokens in `src/design/tokens.css`: `--violet #7A2FF2`, `--deep #3D0F8A`, `--rune
 
 HUD must stay out of PoE's UI; the away scene must stay out of the HUD's lanes (it is layered underneath in OBS):
 
-- strip `x520 y16 520×76` · goals `x520 y100 520×50` · rail `x26 y132 56×680` · notice `x26 y96` · banner `x470 y620 560×202` · lab card `x1252 y18 376×170` (lab date only; sits over the inventory panel when open, by choice) · clip pip `x1040 y220 640×360` (over the moon; scene sources only)
+- strip `x520 y16 520×76` · goals `x520 y100 520×50` · rail `x26 y132 56×680` · notice `x26 y96` · banner `x470 y620 560×202` · lab card `x1252 y18 376×170` (lab date only; sits over the inventory panel when open, by choice) · support card `x384 y694 320×176` (default only; the dock moves it, and it hides under banners and polls) · clip pip `x1040 y220 640×360` (over the moon; scene sources only)
 
 Chill has no HUD over it, so it uses its own set (`CONFIG.camera` drives the first):
 

@@ -1066,3 +1066,216 @@
   color: rgba(243, 238, 228, 0.5);
   line-height: 1.5;
 }
+
+/* ─────────────────── SUPPORT CARD ───────────────────
+   One 320×176 card, rotated by the dock's library. Same panel language as
+   the lab card. No ember here: asking for a sub is not a gain. */
+.support {
+  position: absolute;
+  width: 320px;
+  height: 176px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.6s var(--ease),
+    transform 0.6s var(--ease);
+}
+.support.on {
+  opacity: 1;
+  transform: none;
+}
+.supIn {
+  width: 100%;
+  height: 100%;
+  animation: supIn 0.7s var(--ease) both;
+}
+@keyframes supIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.supCard {
+  position: relative;
+  width: 320px;
+  height: 176px;
+  display: flex;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(61, 15, 138, 0.78), rgba(20, 6, 48, 0.88));
+  border: 1px solid rgba(169, 123, 255, 0.32);
+  border-left: 3px solid var(--violet);
+  border-radius: 3px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  color: var(--cream);
+  font-family: var(--font-body);
+}
+/* art layout: the picture bleeds in from the right and fades into the violet */
+.supArt {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 58%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 55%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 55%);
+  animation: supArt 1.2s var(--ease) 0.12s both;
+}
+@keyframes supArt {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+.sup_art .supText {
+  max-width: 64%;
+}
+.sup_art.supNoArt .supText {
+  max-width: none;
+}
+/* tile layout: one framed square on the left */
+.supFrame {
+  flex: none;
+  width: 84px;
+  height: 84px;
+  margin: 16px 0 0 16px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(169, 123, 255, 0.45);
+  box-shadow:
+    0 0 0 3px rgba(20, 6, 48, 0.9),
+    0 0 16px rgba(122, 47, 242, 0.45);
+  background: radial-gradient(circle at 50% 40%, #5a22c4, #1d0848 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: supArt 1.2s var(--ease) 0.12s both;
+}
+.supFrame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.supFrame .supOrb {
+  width: 46px;
+  height: 46px;
+}
+.supText {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.supKicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--rune);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.supTitle {
+  font-size: 22px;
+  line-height: 1.08;
+  font-weight: 700;
+  text-shadow: 0 1px 6px #000;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.supBody {
+  font-size: 14.5px;
+  line-height: 1.25;
+  font-weight: 500;
+  color: rgba(243, 238, 228, 0.75);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.supBody b {
+  color: var(--cream);
+  font-weight: 700;
+}
+.supCenter {
+  text-align: center;
+}
+.supUrl {
+  font-family: var(--font-num);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--rune);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* row layout: up to three pictures with labels */
+.supRow {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 4px;
+}
+.supItem {
+  width: 86px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(243, 238, 228, 0.8);
+  white-space: nowrap;
+  animation: supArt 1s var(--ease) both;
+}
+.supItem:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.supItem:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.supItem img,
+.supItem .supOrb {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(122, 47, 242, 0.55));
+}
+.supOrb {
+  display: block;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, #fff 0, #c9a8ff 10%, #7823ed 38%, #2b057e 75%);
+  box-shadow: 0 0 12px rgba(155, 57, 250, 0.6);
+}
+/* time until the next card */
+.supBar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  z-index: 2;
+  background: rgba(243, 238, 228, 0.08);
+}
+.supBar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--deep), var(--violet), var(--rune));
+  box-shadow: 0 0 8px rgba(122, 47, 242, 0.8);
+  animation: supFill linear forwards;
+}
+@keyframes supFill {
+  to {
+    width: 100%;
+  }
+}

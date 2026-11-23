@@ -103,6 +103,18 @@ Limits (in `CONFIG`): 2 minutes between any two clips, 15 minutes per viewer (mo
 
 Paste `clips.twitch.tv/…`, `twitch.tv/<chan>/clip/…`, or a bare slug. The HUD (the source with the token) fills in title and duration over the bus so the card knows when to leave.
 
+## Support cards
+
+A small card on the HUD, left of the camera by default, that rotates through reasons to subscribe. Manage it in the dock's **Support cards** section:
+
+- **Cards on / Pause / Next ›** — hide them all, hold the current card, or skip ahead. The line under the buttons says what's on air and when it changes.
+- **Seconds each, Left (x), Top (y)** — rotation speed and where the 320×176 card sits on the 1920×1080 stage. `?guide=1` draws the default spot.
+- **The list** — tick a card in or out of rotation, ▲▼ to reorder, **Show** to put it up now for one full turn (even if its schedule says no). Click a card to edit it.
+- **The editor** — a live preview of the real card, three layouts (*Tile*: one framed picture; *Art*: a picture fading in from the right; *Row*: up to three pictures with labels), kicker / title / body with length limits so nothing overflows (`**word**` is bold), an optional link line, and a schedule: every stream or lab nights (any, play or dev), weekdays, and a from/until date range. Lab nights follow the dock's lab for today, or the usual schedule when none is set.
+- **Pictures** come from the shipped library, your sub badges (once the dock has a Twitch connection), uploads, or any `https://` image link. Uploads are kept in this OBS profile only, so use **Copy backup** and keep the text somewhere safe; **Restore…** brings it back.
+
+The card hides while an alert banner or a poll is on screen.
+
 ## Tallies
 
 The HUD's tally strip (default: Maps / Deaths / Mirrors) is editable from the dock's **Tallies** section — rename the label, rename the chat command, remove one, or add more. Each tally's command word doubles as its storage key (`maps` → `!map` and `!maps` both bump it). Changes push live to every open source and persist.

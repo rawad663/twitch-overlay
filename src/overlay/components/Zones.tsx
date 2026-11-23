@@ -1,6 +1,6 @@
 "use client";
 
-import { CHILL_ZONES, CLIP_PIP, POE_ZONES, type Zone } from "@/design/stage";
+import { CHILL_ZONES, CLIP_PIP, HUD_LANES, POE_ZONES, type Zone } from "@/design/stage";
 import s from "../overlay.module.css";
 
 /**
@@ -12,6 +12,9 @@ export function Zones({ chill, scene }: { chill: boolean; scene: boolean }) {
   const zones: Zone[] = [...(chill ? CHILL_ZONES : POE_ZONES)];
   if (scene) {
     zones.push({ label: "clip pip", rect: chill ? CLIP_PIP.chill : CLIP_PIP.away });
+  } else {
+    // the default spot; the dock can move the card itself
+    zones.push({ label: "support card (default)", rect: HUD_LANES.support });
   }
   return (
     <>

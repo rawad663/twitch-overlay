@@ -78,3 +78,36 @@ export async function resolveUserId(auth: Auth, login: string): Promise<string |
     return null;
   }
 }
+
+export type SubBadge = { version: string; title: string; url: string };
+
+/**
+ * The channel's own subscriber badges (Wanderer / Stargazer / Fatekeeper and
+ * their tenure steps). Version "0" is the tier 1 base, "2000" and "3000" the
+ * tier 2 and tier 3 bases. Needs no scope — any valid token reads them.
+ */
+export async function fetchSubBadges(auth: Auth, login: string): Promise<SubBadge[]> {
+  try {
+    const id = await resolveUserId(auth, login);
+    if (!id) return [];
+    const r = await helix(auth, "chat/badges?broadcaster_id=" + encodeURIComponent(id));
+    if (!r.ok) return [];
+    const j = (await r.json()) as {
+      data?: Array<{
+        set_id?: string;
+        versions?: Array<{ id?: string; title?: string; image_url_4x?: string; image_url_2x?: string }>;
+      }>;
+    };
+    const set = j.data?.find((d) => d.set_id === "subscriber");
+    return (set?.versions ?? [])
+      .map((v) => ({
+        version: String(v.id ?? ""),
+        title: String(v.title ?? "").slice(0, 40),
+        url: String(v.image_url_4x ?? v.image_url_2x ?? ""),
+      }))
+      .filter((b) => /^\d{1,5}$/.test(b.version) && b.url.startsWith("https://"))
+      .sort((a, b) => Number(a.version) - Number(b.version));
+  } catch {
+    return [];
+  }
+}

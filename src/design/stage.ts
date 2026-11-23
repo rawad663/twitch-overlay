@@ -41,6 +41,11 @@ export const HUD_LANES = {
    *  minimap (starts ~x1640). It does sit over the inventory panel when that
    *  is open; Rawad chose the spot knowing that (2026-11-19). */
   lab: [1252, 18, 376, 170] as Rect,
+  /** Support card's DEFAULT spot, left of where the facecam sits above the
+   *  skill bar. The dock can move it (x/y saved in the card library); only
+   *  the size is fixed. It hides while a banner or poll is up, so sharing the
+   *  banner's corner is fine. */
+  support: [384, 694, 320, 176] as Rect,
 } as const;
 
 /**
@@ -88,7 +93,7 @@ export function cameraCircle(camera: readonly [number, number, number, number]) 
 export function keepOut(chill: boolean): readonly Rect[] {
   return chill
     ? [...CHILL_ZONES.map((z) => z.rect), CLIP_PIP.chill]
-    : [HUD_LANES.strip, HUD_LANES.goals, HUD_LANES.rail, HUD_LANES.notice, HUD_LANES.banner, HUD_LANES.lab, CLIP_PIP.away];
+    : [HUD_LANES.strip, HUD_LANES.goals, HUD_LANES.rail, HUD_LANES.notice, HUD_LANES.banner, HUD_LANES.lab, HUD_LANES.support, CLIP_PIP.away];
 }
 
 /** Scale factor + horizontal centring for the fixed stage in a given viewport. */

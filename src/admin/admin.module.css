@@ -447,3 +447,269 @@
   border: 1px solid rgba(232, 97, 93, 0.5);
   color: var(--bad);
 }
+
+/* ── support cards ── */
+.cardAir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(122, 47, 242, 0.12);
+  font-size: 12.5px;
+}
+.cardAirText {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cardAirMeta {
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.linkBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--rune);
+  font: inherit;
+  font-size: 11.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.cardList .btnBlock {
+  margin-top: 0;
+}
+.cardRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.cardRowSel {
+  border-color: var(--violet);
+  background: rgba(122, 47, 242, 0.12);
+}
+.cardRowOff .cardThumb,
+.cardRowOff .cardInfo {
+  opacity: 0.45;
+}
+.cardOrder {
+  display: flex;
+  flex-direction: column;
+}
+.cardOrder button {
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 8px;
+  line-height: 1.3;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+.cardOrder button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.cardThumb {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 2px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+.cardThumbOrb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, #fff 0, #c9a8ff 10%, #7823ed 38%, #2b057e 75%);
+}
+i.cardThumb.cardThumbOrb {
+  width: 34px;
+  height: 34px;
+  border-radius: 2px;
+}
+.cardInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: var(--cream);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+.cardName {
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.chip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 5px;
+  border-radius: 2px;
+  background: rgba(169, 123, 255, 0.16);
+  color: var(--rune);
+}
+.chipLive {
+  background: rgba(88, 201, 138, 0.16);
+  color: var(--good);
+}
+.cardTools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cardTools input {
+  accent-color: var(--violet);
+}
+.cardEditor {
+  margin-top: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.cardEditor .hint {
+  margin-top: 5px;
+}
+/* the HUD's own card face at 85%, so the preview is what goes on stream */
+.cardPreview {
+  width: 272px;
+  height: 150px;
+  overflow: hidden;
+}
+.cardPreviewIn {
+  transform: scale(0.85);
+  transform-origin: top left;
+}
+.counter {
+  float: right;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.seg,
+.days {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.seg button,
+.days button {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: none;
+  border-right: 1px solid var(--line);
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.seg button:last-child,
+.days button:last-child {
+  border-right: none;
+}
+.seg .segOn,
+.days .segOn {
+  background: var(--violet);
+  color: var(--cream);
+}
+.days {
+  margin-bottom: 2px;
+}
+.slots {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.slot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+.slot .input {
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.slotPic {
+  width: 52px;
+  height: 52px;
+  border: 1px dashed var(--line);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--rune);
+  font-size: 18px;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+}
+.slotOn .slotPic {
+  border: 2px solid var(--violet);
+}
+.slotPic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.lib {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 5px;
+}
+.lib button {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  cursor: pointer;
+}
+.lib img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.lib .libOn {
+  border: 2px solid var(--violet);
+  box-shadow: 0 0 8px rgba(122, 47, 242, 0.7);
+}
+.lib .libAdd {
+  border-style: dashed;
+  color: var(--rune);
+  font-size: 18px;
+}

@@ -52,6 +52,9 @@ import { BalloonLayer } from "./components/BalloonLayer";
 import { ClipPlayer } from "./components/ClipPlayer";
 import { OAuthHelper } from "./components/OAuthHelper";
 import { useClips } from "./clips/useClips";
+import { useSupportCards } from "./cards/useSupportCards";
+import { cardSrcs, useCardImageUrls } from "./cards/images";
+import { SupportCard } from "./components/SupportCard";
 import { fetchClip } from "./twitch/helix";
 import s from "./overlay.module.css";
 
@@ -105,6 +108,12 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     clipsEnabled: settings.clipsEnabled,
     cooldown,
   });
+
+  const cards = useSupportCards(settings, labNow);
+  const { replace: replaceCards, show: showCard, next: nextCard, snapshot: cardSnapshot } = cards;
+  const cardsOn = cards.library.on;
+  const [cardRev, setCardRev] = useState(0);
+  const cardUrls = useCardImageUrls(cardSrcs(cards.library.cards), { token, clientId }, cardRev);
 
   /* ── settings: URL params seed, saved settings win ── */
   useEffect(() => {
@@ -484,6 +493,13 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
         });
       }),
       bus.on("clips", (p) => clips.replace(p.clips)),
+      bus.on("cards", (p) => {
+        replaceCards(p.library);
+        // an upload may have landed in IndexedDB under an id we already tried
+        setCardRev((n) => n + 1);
+      }),
+      bus.on("card.show", (p) => showCard(p.id)),
+      bus.on("card.next", () => nextCard()),
       bus.on("clip.play", (p) => clips.playNow(p.slug, "the panel")),
       bus.on("clip.stop", () => clips.stop()),
       bus.on("clip.resolve", (p) => {
@@ -494,7 +510,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       }),
     ];
     return () => off.forEach((fn) => fn());
-  }, [bus, tallies, poll, testAlert, say, fate, clearCooldown, clips.replace, clips.playNow, clips.stop, params.token, params.clientId]);
+  }, [bus, tallies, poll, testAlert, say, fate, clearCooldown, clips.replace, clips.playNow, clips.stop, replaceCards, showCard, nextCard, params.token, params.clientId]);
 
   /* ── bus: status out ── */
   const hello = useCallback(() => {
@@ -528,9 +544,10 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       totals: scene ? undefined : totals,
       clipPlays: clips.clipPlays,
       clip: clips.snapshot,
+      card: scene ? undefined : cardSnapshot(!!banner || !!poll.poll || !cardsOn),
     };
     bus.send("hello", payload);
-  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, labNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot]);
+  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, labNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot, cardSnapshot, cardsOn, banner]);
 
   useEffect(() => {
     if (!bus) return;
@@ -590,6 +607,15 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
             <Strip moon={moon} defs={settings.tallyDefs} counts={tallies.counts} hit={tallies.hit} />
             <Goals totals={totals} settings={settings} suppressed={bannerActive || pollOn} />
             <Poll poll={poll.poll} />
+            <SupportCard
+              card={cards.card}
+              urls={cardUrls}
+              seconds={cards.library.paused ? 0 : cards.library.seconds}
+              x={cards.library.x}
+              y={cards.library.y}
+              show={cards.library.on && !bannerActive && !pollOn}
+              showKey={cards.showKey}
+            />
           </>
         )}
 

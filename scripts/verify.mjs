@@ -27,6 +27,7 @@ const MIME = {
   ".json": "application/json",
   ".woff2": "font/woff2",
   ".svg": "image/svg+xml",
+  ".webp": "image/webp",
   ".txt": "text/plain",
 };
 
@@ -228,6 +229,42 @@ async function main() {
     await admin.getByRole('button', { name: 'Clear lab', exact: true }).click();
     await admin.waitForTimeout(1000);
     check('clear lab persists empty summary', await hud.evaluate(() => JSON.parse(localStorage.getItem('rawad-settings')).labSummary === ''));
+
+    /* ── support cards ── */
+    const sup = hud.locator('[class*="support"]').first();
+    await hud.waitForTimeout(1200);
+    const supBox = await sup.boundingBox();
+    check('support card at its default spot, 320x176', !!supBox && Math.abs(supBox.x - 384) < 2 && Math.abs(supBox.y - 694) < 2 && Math.round(supBox.width) === 320 && Math.round(supBox.height) === 176,
+      supBox ? `x${Math.round(supBox.x)} y${Math.round(supBox.y)} ${Math.round(supBox.width)}x${Math.round(supBox.height)}` : 'no box');
+    check('support card shows a default card', (await sup.evaluate(el => getComputedStyle(el).opacity)) !== '0' && /\S/.test(await sup.textContent()), (await sup.textContent()).slice(0, 50));
+    check('support card art loads from the shipped library', await hud.evaluate(async () => {
+      const img = document.querySelector('[class*="supFrame"] img, [class*="supArt"]');
+      if (!img) return false;
+      if (!img.complete) await new Promise(r => img.addEventListener('load', r, { once: true }));
+      return img.naturalWidth > 0;
+    }));
+    const badgesRow = admin.locator('[class*="cardRow"]', { hasText: 'Sub badges' });
+    await badgesRow.getByRole('button', { name: 'Show', exact: true }).click();
+    await admin.waitForTimeout(1400);
+    check('dock Show puts that card on air', /badge grows/.test(await sup.textContent()));
+    check('dock on-air line follows the HUD', /Sub badges/.test(await admin.locator('[role="status"][class*="cardAir"]').textContent()));
+    await admin.locator('[class*="cardRow"]', { hasText: 'Got Prime' }).locator('[class*="cardInfo"]').click();
+    await admin.fill('#cardTitle', 'Prime sub? Spend it here');
+    await admin.getByRole('button', { name: 'Save card', exact: true }).click();
+    await admin.waitForTimeout(1000);
+    check('edited card persists for the HUD', await hud.evaluate(() => JSON.parse(localStorage.getItem('rawad-cards')).cards.some(c => c.title === 'Prime sub? Spend it here')));
+    await admin.locator('[class*="cardRow"]', { hasText: 'Prime sub?' }).getByRole('button', { name: 'Show', exact: true }).click();
+    await admin.waitForTimeout(1400);
+    check('edited card shows on the HUD', /Spend it here/.test(await sup.textContent()));
+    await admin.fill('#cardX', '500');
+    await admin.waitForTimeout(1200);
+    const moved = await sup.boundingBox();
+    check('dock moves the card', !!moved && Math.abs(moved.x - 500) < 2, moved ? `x${Math.round(moved.x)}` : 'no box');
+    await admin.getByRole('button', { name: 'Cards on', exact: true }).click();
+    await admin.waitForTimeout(1200);
+    check('Cards off hides it', (await sup.evaluate(el => getComputedStyle(el).opacity)) === '0');
+    await admin.getByRole('button', { name: 'Cards off', exact: true }).click();
+    if (SHOTS) await hud.screenshot({ path: join(ROOT, ".verify", "support-card.png"), clip: { x: 360, y: 670, width: 520, height: 230 } });
 
     // Watch every banner the HUD shows: demo traffic keeps firing fates, so a
     // single read after the fact races the queue rather than testing it.
