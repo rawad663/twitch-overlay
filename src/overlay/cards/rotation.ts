@@ -25,7 +25,7 @@ export function easternWeekday(now = new Date()): number {
  * Thursday, the dev lab Wednesday — so a card still shows on a night the dock
  * lab wasn't filled in.
  */
-export function labTonight(settings: Pick<Settings, "labSummary" | "labDate" | "labKind">, now = new Date()): LabTonight {
+export function labTonight(settings: Pick<Settings, "labSummary" | "labDate" | "labKind"> & { labTitle?: string }, now = new Date()): LabTonight {
   if (labActive(settings, now)) return settings.labKind || "lab";
   const day = easternWeekday(now);
   if (day === 1 || day === 4) return "play";
@@ -33,7 +33,7 @@ export function labTonight(settings: Pick<Settings, "labSummary" | "labDate" | "
   return "";
 }
 
-export function cardContext(settings: Pick<Settings, "labSummary" | "labDate" | "labKind">, now = new Date()): CardContext {
+export function cardContext(settings: Pick<Settings, "labSummary" | "labDate" | "labKind"> & { labTitle?: string }, now = new Date()): CardContext {
   return { date: easternDate(now), weekday: easternWeekday(now), lab: labTonight(settings, now) };
 }
 

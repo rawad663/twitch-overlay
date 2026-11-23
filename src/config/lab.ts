@@ -3,9 +3,13 @@ export const NO_LAB = "No lab today! Labs run Monday, Wednesday & Thursday, 7–
 export function easternDate(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
-export function labActive(settings: Pick<Settings, "labSummary" | "labDate">, now = new Date()): boolean {
-  return !!settings.labSummary.trim() && settings.labDate === easternDate(now);
+type LabFields = Pick<Settings, "labSummary" | "labDate"> & { labTitle?: string };
+/** A headline alone is enough — the summary is optional (Rawad, 2026-11-23). */
+export function labActive(settings: LabFields, now = new Date()): boolean {
+  return !!(settings.labSummary.trim() || settings.labTitle?.trim()) && settings.labDate === easternDate(now);
 }
-export function labReply(settings: Pick<Settings, "labSummary" | "labDate">, now = new Date()): string {
-  return labActive(settings, now) ? `Today's lab: ${settings.labSummary.replace(/\s+/g, " ").trim().slice(0, 400)}` : NO_LAB;
+/** The summary when there is one, otherwise the headline. */
+export function labReply(settings: LabFields, now = new Date()): string {
+  const text = (settings.labSummary.trim() || settings.labTitle?.trim() || "").replace(/\s+/g, " ").slice(0, 400);
+  return labActive(settings, now) ? `Today's lab: ${text}` : NO_LAB;
 }

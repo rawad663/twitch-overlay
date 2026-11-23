@@ -30,6 +30,12 @@ it("expires at Eastern midnight, including summer DST", () => {
   expect(labReply({ labSummary: "Test builds", labDate: "2026-11-18" })).toBe(NO_LAB);
   expect(labReply({ labSummary: "   ", labDate: "2026-11-19" })).toBe(NO_LAB);
 });
+
+it("runs on a headline alone and replies with it", () => {
+  expect(labReply({ labSummary: "", labTitle: " Will I reach endgame? ", labDate: "2026-11-19" })).toBe("Today's lab: Will I reach endgame?");
+  expect(labReply({ labSummary: "Die 3 times, pick a handicap", labTitle: "Endgame run", labDate: "2026-11-19" })).toBe("Today's lab: Die 3 times, pick a handicap");
+  expect(labReply({ labSummary: "", labTitle: "", labDate: "2026-11-19" })).toBe(NO_LAB);
+});
 it("normalizes summaries without clobbering unrelated settings", () => {
   const s = mergeSettings(DEFAULT_SETTINGS, { labSummary: "  test\n builds ", labDate: "2026-11-19" });
   expect(s.labSummary).toBe("test builds"); expect(s.volume).toBe(DEFAULT_SETTINGS.volume);

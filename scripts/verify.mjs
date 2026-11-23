@@ -221,6 +221,11 @@ async function main() {
     const box = await card.boundingBox();
     check('lab card stays between boss bar and minimap', !!box && box.x >= 1250 && box.x + box.width <= 1630 && box.y + box.height <= 190, box ? `x${Math.round(box.x)} w${Math.round(box.width)} h${Math.round(box.height)}` : 'no box');
     check('strip hint is !fate again', (await hud.locator('[class*="quietHint"]').textContent()).includes('!fate'));
+    await admin.fill('#labSummary', '');
+    await admin.getByRole('button', { name: 'Save lab', exact: true }).click();
+    await admin.waitForTimeout(1000);
+    const headlineOnly = hud.locator('[class*="labCard"]');
+    check('lab card shows with a headline and no summary', (await headlineOnly.evaluate(el => getComputedStyle(el).opacity)) !== '0' && /1-div build/.test(await headlineOnly.textContent()) && !(await hud.$('[class*="labSummary"]')));
     await admin.fill('#labDate', '2020-01-01');
     await admin.getByRole('button', { name: 'Save lab', exact: true }).click();
     await admin.waitForTimeout(1000);
