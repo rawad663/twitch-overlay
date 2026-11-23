@@ -36,16 +36,15 @@ export const HUD_LANES = {
   goals: [520, 100, 520, 50] as Rect,
   rail: [26, 132, 56, 680] as Rect,
   notice: [26, 96, 174, 16] as Rect,
-  banner: [470, 620, 560, 202] as Rect,
+  banner: [680, 410, 560, 202] as Rect,
   /** Top right, between PoE2's boss life bar (ends ~x1150) and the corner
    *  minimap (starts ~x1640). It does sit over the inventory panel when that
    *  is open; Rawad chose the spot knowing that (2026-11-19). */
   lab: [1252, 18, 376, 170] as Rect,
-  /** Support card's DEFAULT spot, left of where the facecam sits above the
-   *  skill bar. The dock can move it (x/y saved in the card library); only
-   *  the size is fixed. It hides while a banner or poll is up, so sharing the
-   *  banner's corner is fine. */
-  support: [384, 694, 320, 176] as Rect,
+  /** Support card's DEFAULT spot: just left of the gameplay camera
+   *  (x≈937–1529, y≈743–1080) with its bottom on the flask bar. The dock can
+   *  move it (x/y saved in the card library); only the size is fixed. */
+  support: [601, 704, 320, 176] as Rect,
 } as const;
 
 /**

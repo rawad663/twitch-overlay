@@ -438,10 +438,13 @@
 }
 
 /* ─────────────────── ORACLE BANNER ─────────────────── */
+/* Centred on the stage (Rawad, 2026-11-23), so it never fights the support
+   card and the camera along the bottom. It sits over the character for the
+   few seconds it's up, by choice. */
 .oracle {
   position: absolute;
-  left: 470px;
-  top: 690px;
+  left: 680px;
+  top: 480px;
   width: 560px;
   transform-origin: top center;
   pointer-events: none;
@@ -450,9 +453,9 @@
   animation: unfurl 9.4s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
 }
 /* a live poll is only 13px above the banner — drop it a touch so the two read
-   as separate things. Still clears the flask bar at y880. */
+   as separate things. */
 .oracle.lowered {
-  top: 716px;
+  top: 506px;
 }
 @keyframes unfurl {
   0% {
@@ -597,8 +600,8 @@
 /* ───────────────────────── POLL ───────────────────────── */
 .poll {
   position: absolute;
-  left: 470px;
-  top: 620px;
+  left: 680px;
+  top: 410px;
   width: 560px;
   opacity: 0;
   transform: translateY(10px);

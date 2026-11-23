@@ -113,7 +113,7 @@ A small card on the HUD, left of the camera by default, that rotates through rea
 - **The editor** — a live preview of the real card, three layouts (*Tile*: one framed picture; *Art*: a picture fading in from the right; *Row*: up to three pictures with labels), kicker / title / body with length limits so nothing overflows (`**word**` is bold), an optional link line, and a schedule: every stream or lab nights (any, play or dev), weekdays, and a from/until date range. Lab nights follow the dock's lab for today, or the usual schedule when none is set.
 - **Pictures** come from the shipped library, your sub badges (once the dock has a Twitch connection), uploads, or any `https://` image link. Uploads are kept in this OBS profile only, so use **Copy backup** and keep the text somewhere safe; **Restore…** brings it back.
 
-The card hides while an alert banner or a poll is on screen.
+Alert banners and polls open in the middle of the screen, so the card stays up through them.
 
 ## Tallies
 

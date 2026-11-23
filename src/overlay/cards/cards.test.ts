@@ -61,6 +61,12 @@ describe("normalizeCardLibrary", () => {
     expect(lib.cards[0]!.body).toBe("two spaces");
   });
 
+  it("moves a card saved at the first default spot to the current default", () => {
+    const lib = normalizeCardLibrary({ ...DEFAULT_LIBRARY, x: 384, y: 694 });
+    expect([lib.x, lib.y]).toEqual([DEFAULT_LIBRARY.x, DEFAULT_LIBRARY.y]);
+    expect(normalizeCardLibrary({ ...DEFAULT_LIBRARY, x: 384, y: 700 }).x).toBe(384);
+  });
+
   it("re-ids duplicates so Show never hits the wrong card", () => {
     const lib = normalizeCardLibrary({ ...DEFAULT_LIBRARY, cards: [card(), card()] });
     expect(new Set(lib.cards.map((c) => c.id)).size).toBe(2);

@@ -234,7 +234,7 @@ async function main() {
     const sup = hud.locator('[class*="support"]').first();
     await hud.waitForTimeout(1200);
     const supBox = await sup.boundingBox();
-    check('support card at its default spot, 320x176', !!supBox && Math.abs(supBox.x - 384) < 2 && Math.abs(supBox.y - 694) < 2 && Math.round(supBox.width) === 320 && Math.round(supBox.height) === 176,
+    check('support card at its default spot, 320x176', !!supBox && Math.abs(supBox.x - 601) < 2 && Math.abs(supBox.y - 704) < 2 && Math.round(supBox.width) === 320 && Math.round(supBox.height) === 176,
       supBox ? `x${Math.round(supBox.x)} y${Math.round(supBox.y)} ${Math.round(supBox.width)}x${Math.round(supBox.height)}` : 'no box');
     check('support card shows a default card', (await sup.evaluate(el => getComputedStyle(el).opacity)) !== '0' && /\S/.test(await sup.textContent()), (await sup.textContent()).slice(0, 50));
     check('support card art loads from the shipped library', await hud.evaluate(async () => {
@@ -283,6 +283,11 @@ async function main() {
 
     const toast = (await admin.textContent('[class*="toast"]'))?.trim() ?? "";
     check("panel confirms delivery via ack", toast.startsWith("✓"), toast);
+
+    const oracle = await hud.locator('[class*="oracle"]').first().boundingBox();
+    check("banner is centred on the stage", !!oracle && Math.abs(oracle.x + oracle.width / 2 - 960) < 2 && oracle.y >= 400 && oracle.y <= 560,
+      oracle ? `x${Math.round(oracle.x)} y${Math.round(oracle.y)} w${Math.round(oracle.width)}` : "no banner");
+    check("support card stays up during a banner", (await hud.locator('[class*="support"]').first().evaluate(el => getComputedStyle(el).opacity)) !== "0");
 
     await hud.waitForTimeout(1500);
     const seen = await hud.evaluate(() => window.__seen ?? []);

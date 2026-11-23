@@ -87,7 +87,7 @@ export function SupportCardFace({
   );
 }
 
-/** The HUD's support card: positioned on the stage, hidden under banners and polls. */
+/** The HUD's support card, positioned on the stage. Banners and polls sit mid-screen, clear of it. */
 export function SupportCard({
   card,
   urls,

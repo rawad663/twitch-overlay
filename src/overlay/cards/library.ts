@@ -193,8 +193,11 @@ export function normalizeCardLibrary(raw: unknown): CardLibrary {
   if (!raw || typeof raw !== "object") return DEFAULT_LIBRARY;
   const l = raw as Partial<CardLibrary>;
   const seconds = Number(l.seconds);
-  const x = Number(l.x);
-  const y = Number(l.y);
+  // 384,694 was the first default, saved before the camera's real spot was
+  // known; follow the new default rather than strand the card there
+  const oldDefault = l.x === 384 && l.y === 694;
+  const x = oldDefault ? DEFAULT_LIBRARY.x : Number(l.x);
+  const y = oldDefault ? DEFAULT_LIBRARY.y : Number(l.y);
   const cards: SupportCard[] = [];
   const seen = new Set<string>();
   for (const item of Array.isArray(l.cards) ? l.cards : []) {

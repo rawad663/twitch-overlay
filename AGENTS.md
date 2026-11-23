@@ -105,7 +105,7 @@ Tokens in `src/design/tokens.css`: `--violet #7A2FF2`, `--deep #3D0F8A`, `--rune
 
 HUD must stay out of PoE's UI; the away scene must stay out of the HUD's lanes (it is layered underneath in OBS):
 
-- strip `x520 y16 520×76` · goals `x520 y100 520×50` · rail `x26 y132 56×680` · notice `x26 y96` · banner `x470 y620 560×202` · lab card `x1252 y18 376×170` (lab date only; sits over the inventory panel when open, by choice) · support card `x384 y694 320×176` (default only; the dock moves it, and it hides under banners and polls) · clip pip `x1040 y220 640×360` (over the moon; scene sources only)
+- strip `x520 y16 520×76` · goals `x520 y100 520×50` · rail `x26 y132 56×680` · notice `x26 y96` · banner `x680 y410 560×202` (centred on the stage, poll on top, banner from y480; moved from bottom-left 2026-11-23 so it never meets the support card and camera) · lab card `x1252 y18 376×170` (lab date only; sits over the inventory panel when open, by choice) · support card `x601 y704 320×176` (default only, left of the gameplay camera at about x937–1529 y743–1080; the dock moves it) · clip pip `x1040 y220 640×360` (over the moon; scene sources only)
 
 Chill has no HUD over it, so it uses its own set (`CONFIG.camera` drives the first):
 

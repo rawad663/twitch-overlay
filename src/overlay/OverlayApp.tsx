@@ -544,10 +544,10 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       totals: scene ? undefined : totals,
       clipPlays: clips.clipPlays,
       clip: clips.snapshot,
-      card: scene ? undefined : cardSnapshot(!!banner || !!poll.poll || !cardsOn),
+      card: scene ? undefined : cardSnapshot(!cardsOn),
     };
     bus.send("hello", payload);
-  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, labNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot, cardSnapshot, cardsOn, banner]);
+  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, labNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot, cardSnapshot, cardsOn]);
 
   useEffect(() => {
     if (!bus) return;
@@ -613,7 +613,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
               seconds={cards.library.paused ? 0 : cards.library.seconds}
               x={cards.library.x}
               y={cards.library.y}
-              show={cards.library.on && !bannerActive && !pollOn}
+              show={cards.library.on}
               showKey={cards.showKey}
             />
           </>

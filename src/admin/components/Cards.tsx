@@ -224,7 +224,7 @@ export function Cards({
       </div>
 
       <div className={s.cardAir} role="status">
-        <i className={`${s.dot} ${!lib.on || !onAir ? s.dotOff : card?.hidden ? s.dotWarn : ""}`} />
+        <i className={`${s.dot} ${!lib.on || !onAir ? s.dotOff : ""}`} />
         <span className={s.cardAirText}>
           {!lib.on
             ? "Cards are off."
@@ -236,7 +236,7 @@ export function Cards({
         </span>
         {lib.on && onAir && (
           <span className={s.cardAirMeta}>
-            {card?.hidden ? "hidden by alert" : lib.paused ? "paused" : `next in ${left}s`}
+            {lib.paused ? "paused" : `next in ${left}s`}
           </span>
         )}
       </div>
