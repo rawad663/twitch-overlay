@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { CONFIG } from "@/config/config";
+import { parseLayer, parseTrigger, type TrailerLayerParams, type TrailerTrigger } from "../trailer/trailer";
 
 export type OverlayMode = "hud" | "afk" | "brb" | "soon" | "scene" | "chill";
 
@@ -19,6 +20,10 @@ export type OverlayParams = {
   /** null when ?volume= was absent, so saved settings still win */
   volume: number | null;
   minutes: number | null;
+  /** `?trailer=<scene>` on the starting-soon source: cut to that OBS scene when the countdown reaches the trailer's length. */
+  trailer: TrailerTrigger | null;
+  /** `?mode=trailer`: the transparent layer over the trailer video, instead of any overlay. */
+  trailerLayer: TrailerLayerParams | null;
 };
 
 const SCENE_MODES = new Set(["afk", "brb", "soon", "scene", "chill"]);
@@ -52,6 +57,8 @@ export function parseParams(search: string, inOBS: boolean): OverlayParams {
     muted: qs.get("mute") === "1",
     volume,
     minutes: min !== null && !Number.isNaN(min) ? Math.max(1, Math.min(180, min)) : null,
+    trailer: mode === "soon" ? parseTrigger(qs) : null,
+    trailerLayer: parseLayer(qs),
   };
 }
 

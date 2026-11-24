@@ -1,0 +1,221 @@
+/* The layer over the starting-soon trailer. Stage coordinates, like the rest of
+   the overlay. The palette is the trailer video's own (its yellow keyword, its
+   lilac labels), not the overlay tokens: this card replaces the video's end
+   card and has to read as part of the same film. No ember here. */
+
+.root {
+  --t-yellow: #ffd21f;
+  --t-lilac: #c7a7eb;
+  --t-pale: #e8d5f9;
+  --t-violet: #9b39fa;
+  --t-font: var(--font-montserrat), var(--font-body);
+
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* the video shows through until the card comes up */
+  background: transparent;
+  font-family: var(--t-font);
+  color: #fff;
+}
+
+.stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: top left;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── countdown chip: the trailer covers the big timer, so a small one stays ── */
+.chip {
+  position: absolute;
+  top: 40px;
+  right: 48px;
+  padding: 12px 24px 12px 26px;
+  border-radius: 999px;
+  border: 2px solid rgba(155, 57, 250, 0.7);
+  background: rgba(12, 7, 26, 0.78);
+  box-shadow: 0 0 28px rgba(120, 35, 237, 0.35);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--t-pale);
+  animation: chipIn 0.5s var(--ease) both;
+}
+.chip b {
+  margin-left: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--t-yellow);
+}
+
+/* ── tonight's lab, over the trailer's end card ── */
+.card {
+  position: absolute;
+  inset: 0;
+  padding: 150px 150px 0;
+  background:
+    radial-gradient(58% 70% at 70% 34%, #2a1766 0%, rgba(22, 11, 56, 0) 72%),
+    radial-gradient(46% 56% at 12% 86%, rgba(120, 35, 237, 0.24) 0%, rgba(0, 0, 0, 0) 70%),
+    linear-gradient(180deg, #0f0828 0%, #06030f 100%);
+  animation: cardIn 0.4s ease-out both;
+}
+/* a few fixed stars; the card is up for seconds, so nothing needs to move */
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow:
+    212px 96px 0 0 rgba(232, 213, 249, 0.7),
+    498px 842px 0 0 rgba(232, 213, 249, 0.45),
+    731px 208px 0 0 rgba(232, 213, 249, 0.5),
+    958px 934px 0 1px rgba(232, 213, 249, 0.6),
+    1124px 132px 0 0 rgba(232, 213, 249, 0.55),
+    1302px 698px 0 0 rgba(232, 213, 249, 0.4),
+    1466px 268px 0 1px rgba(244, 233, 255, 0.8),
+    1588px 884px 0 0 rgba(232, 213, 249, 0.5),
+    1702px 452px 0 0 rgba(232, 213, 249, 0.65),
+    1816px 156px 0 0 rgba(232, 213, 249, 0.45),
+    1650px 1010px 0 0 rgba(232, 213, 249, 0.35),
+    88px 612px 0 0 rgba(232, 213, 249, 0.4),
+    344px 388px 0 0 rgba(232, 213, 249, 0.3),
+    1238px 432px 0 0 rgba(232, 213, 249, 0.35);
+}
+
+.brand,
+.kicker,
+.headline,
+.summary,
+.foot {
+  position: relative;
+  text-transform: uppercase;
+  animation: rise 0.6s var(--ease) both;
+}
+
+.brand {
+  font-weight: 900;
+  font-size: 44px;
+  letter-spacing: 0.02em;
+  animation-delay: 0.05s;
+}
+.brand b {
+  color: var(--t-violet);
+}
+
+.kicker {
+  margin-top: 96px;
+  font-weight: 800;
+  font-size: 34px;
+  letter-spacing: 0.34em;
+  color: var(--t-lilac);
+  animation-delay: 0.12s;
+}
+.kicker b {
+  color: var(--t-yellow);
+}
+
+.headline {
+  margin-top: 26px;
+  max-width: 1560px;
+  font-weight: 900;
+  line-height: 1.04;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  /* a 400-character summary standing in for a missing headline */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+  animation-delay: 0.2s;
+}
+
+.summary {
+  margin-top: 30px;
+  max-width: 1380px;
+  font-weight: 600;
+  font-size: 38px;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--t-pale);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  animation-delay: 0.3s;
+}
+
+.rule {
+  position: absolute;
+  left: 150px;
+  bottom: 186px;
+  width: 860px;
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #7823ed, #9b39fa 60%, rgba(155, 57, 250, 0));
+  box-shadow: 0 0 26px rgba(155, 57, 250, 0.7);
+  transform-origin: left center;
+  animation: wipe 0.7s var(--ease) 0.25s both;
+}
+
+.foot {
+  position: absolute;
+  left: 150px;
+  bottom: 84px;
+  font-weight: 900;
+  font-size: 68px;
+  letter-spacing: 0.01em;
+  animation-delay: 0.38s;
+}
+.foot b {
+  color: var(--t-yellow);
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes chipIn {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(44px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wipe {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

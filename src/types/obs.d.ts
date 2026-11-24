@@ -8,6 +8,8 @@ declare global {
     onVisibilityChange?: (visible: boolean) => void;
     onActiveChange?: (active: boolean) => void;
     getCurrentScene?: (cb: (scene: unknown) => void) => void;
+    /** Only present when the source's Page permissions are "Advanced access to OBS" or higher. */
+    setCurrentScene?: (name: string) => void;
   }
 
   interface Window {

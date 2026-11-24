@@ -56,6 +56,7 @@ import { useSupportCards } from "./cards/useSupportCards";
 import { cardSrcs, useCardImageUrls } from "./cards/images";
 import { SupportCard } from "./components/SupportCard";
 import { fetchClip } from "./twitch/helix";
+import { trailerDue } from "./trailer/trailer";
 import s from "./overlay.module.css";
 
 /** Shown for the frame or two before the engine emits its first snapshot. */
@@ -251,6 +252,26 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     }
     return () => window.removeEventListener("obsSourceVisibleChanged", onVis);
   }, [flushSession, balloons, sound, scene, chill]);
+
+  /* The starting-soon trailer. The video is a Media Source on its own OBS
+     scene, so "play it at two minutes" is a scene cut, and the cut has to land
+     on the tick the countdown crosses the trailer's length for the video to
+     end at zero. Watched on a short timer of its own: the engine's status
+     snapshot is too coarse, and its rAF stops while the source is hidden. */
+  const trailer = params.trailer;
+  const trailerSeen = useRef<{ until: number; left: number | null }>({ until: 0, left: null });
+  useInterval(() => {
+    const sc = sceneRef.current;
+    if (!trailer || !sc || !sceneVisible || sc.state !== "soon" || !sc.until) {
+      trailerSeen.current = { until: 0, left: null };
+      return;
+    }
+    const left = sc.until - Date.now();
+    // a re-armed countdown is a new one: it has to cross the line itself
+    const prev = trailerSeen.current.until === sc.until ? trailerSeen.current.left : null;
+    trailerSeen.current = { until: sc.until, left };
+    if (trailerDue(prev, left, trailer.leadMs)) window.obsstudio?.setCurrentScene?.(trailer.scene);
+  }, trailer ? 100 : null);
 
   useEffect(() => {
     const onHide = () => flushSession();
