@@ -58,6 +58,14 @@ admin dock ── Bus (BC + storage + 500ms poll, deduped by id) ── overlay 
 - **Vibe** — chill-only ambience. Intensity from the shared `beats` array; mood from a keyword tally that decays on a 2s timer and eases per frame. Counts words and discards them — chat text never reaches the canvas.
 - **Demo** — `!window.obsstudio && ?live !== 1`, or `?demo=1`. Fake traffic, no IRC.
 
+### Starting-soon trailer
+
+`src/overlay/trailer/`. The trailer is a local video in an OBS Media Source on its own scene; the page is HTTPS and can neither read a local file nor ship one. `trailer.ts` is pure (URL parsing, the crossing test, the m:ss label) and tested.
+
+- **Trigger** — `?mode=soon&trailer=<scene>`: `OverlayApp` samples `scene.until` every 100ms and calls `obsstudio.setCurrentScene` on the one tick the countdown crosses `lead` (120s). A countdown that starts at or under the lead never fires. `setCurrentScene` only exists when the source's Page permissions are "Advanced access to OBS".
+- **Layer** — `?mode=trailer` renders `TrailerLayer` *instead of* `OverlayApp` (routed in `Overlay.tsx`): no chat, no bus, no scene engine, transparent root. It keeps its own clock from the moment OBS shows it, because the scene cut that shows it also restarts the video, so no state crosses from the starting-soon source. Tonight's card reads the lab from saved settings (`rawad-settings`) and follows `labActive`, the same date rule as the HUD lab card.
+- The card uses the trailer video's palette and Montserrat (`preload: false`), not the overlay tokens: it replaces the video's end card. Its yellow is not ember.
+
 ### Support cards
 
 `src/overlay/cards/` — a rotating 320×176 card on the HUD that asks for subs. The dock owns the library (`rawad-cards`) and sends it whole as `cards`; `card.show` forces one card up for a full turn, `card.next` skips. `rotation.ts` is pure: a card shows when every condition it sets holds (lab kind, weekdays, date range, Eastern). Lab nights come from the dock's lab for today, else the standing schedule (play Mon/Thu, dev Wed).

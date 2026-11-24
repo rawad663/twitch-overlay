@@ -40,6 +40,8 @@ All URLs are from `https://rawad663.github.io/twitch-overlay/`.
    ```
    Opening that URL in Chrome will never connect — Chrome is a different browser and shares no storage with OBS.
 
+5. **Starting-soon trailer** (optional) — a two-minute video that plays as the countdown reaches 2:00 and ends as it hits zero. See [Starting-soon trailer](#starting-soon-trailer).
+
 Chat energy, the constellation and chill vibe persist across HUD / chill / away — every source writes a shared snapshot, so switching scenes does not empty the sky. Showing an away source still starts a fresh timer. Keep **Shutdown source when not visible** off.
 
 If you use the HUD in more than one game scene (POE, LEAGUE, …), put the HUD browser source in its own scene and add that scene as a source in each game scene so you are not running two HUD copies.
@@ -55,6 +57,11 @@ For phone or remote control, use the `!brb` / `!soon` / `!afk` / `!back` chat co
 | `mode=afk` / `brb` / `soon` / `scene` | Full-screen away scene instead of the HUD |
 | `mode=chill` | Camera-on chill scene (no countdown, chat effects, vibe layer) |
 | `min=15` | Countdown minutes (with `mode=brb` or `mode=soon`) |
+| `trailer=Scene%20Name` | With `mode=soon`: cut to that OBS scene when the countdown reaches the trailer's length |
+| `lead=120` | Trailer length in seconds (with `trailer=` or `mode=trailer`) |
+| `mode=trailer` | Transparent layer over the trailer video: countdown chip, then tonight's lab card |
+| `card=113.6` | With `mode=trailer`: seconds in, when tonight's card comes up |
+| `chip=0` | With `mode=trailer`: hide the countdown chip |
 | `live=1` | Connect to Twitch even outside OBS (skips demo traffic) |
 | `demo=1` | Force fake chat/alerts |
 | `guide=1` | Draw the keep-out boxes |
@@ -128,6 +135,35 @@ The source owns the whole 1920×1080 stage and clears a transparent hole for the
 Unlike the away scene, **the HUD is not layered on top**, so the alert banner renders here instead, moved right to clear the camera. Away commands deliberately no-op on a chill source; it's a separate OBS scene you switch to.
 
 **Vibe layer.** The palette and motion drift with chat: message rate drives intensity, and a small keyword dictionary nudges the mood between calm / cozy / funny / hype. Words are counted and discarded — no chat text is ever drawn, so there's nothing to moderate. Every mood stays inside the violet→rune ramp; ember stays reserved for gains (there's a test for it).
+
+## Starting-soon trailer
+
+The video is a local file, so OBS plays it from a **Media Source** on its own scene. The overlay does two things around it: the starting-soon source cuts to that scene at the right second, and a transparent layer over the video shows a small countdown and then tonight's lab.
+
+**One-time setup**
+
+1. Make a scene, for example `Starting Soon Trailer`, with these sources from bottom to top:
+   - **`[Overlay] Starting Soon`** — *Add Existing*, the same source the Starting Soon scene uses. It keeps counting under the video and is what shows when the video ends.
+   - **Media Source** — *Local File* = the trailer; **Loop** off; **Restart playback when source becomes active** on; **Show nothing when playback ends** on.
+   - **Browser Source** — 1920×1080, fitted to the canvas, shutdown when not visible off:
+     ```
+     https://rawad663.github.io/twitch-overlay/?mode=trailer
+     ```
+2. On the existing `[Overlay] Starting Soon` source, add the scene name to the URL (spaces as `%20`) and set **Page permissions** to **Advanced access to OBS**. Without that permission OBS does not let a page change scenes, and nothing happens.
+   ```
+   …&mode=soon&trailer=Starting%20Soon%20Trailer
+   ```
+
+**What happens on a stream night**
+
+- Start the countdown as usual. It must start with more than two minutes on it; a shorter one never plays the trailer.
+- At 2:00 the overlay cuts to the trailer scene, which restarts the video. A chip in the top right keeps the countdown visible.
+- For the last seconds, the layer covers the video's end card with **tonight's lab**: the headline and summary saved in the dock's Lab section, shown only on the lab's own Eastern date. With no lab saved for today, the video's own end card stays.
+- When the video ends, the card stays up (or the starting-soon scene shows through) until you switch to your game scene.
+
+Cutting to the trailer scene by hand plays the same thing: the layer keeps its own clock from the moment OBS shows it.
+
+A different trailer length: put `&lead=<seconds>` on both URLs, and `&card=<seconds>` on the layer for where its end card begins. `?mode=trailer&card=2&lead=20` in a normal browser previews the card with a sample lab.
 
 ## Follow alerts and milestones
 

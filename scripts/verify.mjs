@@ -188,6 +188,72 @@ async function main() {
     await page.close();
   }
 
+  /* ── starting-soon trailer ── */
+  {
+    // the layer over the video: a countdown chip, then tonight's card on cue
+    const page = await ctx.newPage();
+    page.on("pageerror", (e) => errors.push(`trailer: ${e.message}`));
+    await page.goto(url("?mode=trailer&lead=20&card=2"), { waitUntil: "networkidle" });
+    await page.waitForTimeout(500);
+    const chip = (await page.textContent('[class*="chip"]'))?.trim();
+    check("trailer layer opens on the countdown chip", /Live in\s*0:(19|20)/i.test(chip ?? ""), chip);
+    const bg = await page.evaluate(() => [document.body, document.querySelector('[class*="root"]')].map((el) => getComputedStyle(el).backgroundColor).join(" | "));
+    check("trailer layer is transparent over the video", bg === "rgba(0, 0, 0, 0) | rgba(0, 0, 0, 0)", bg);
+    check("trailer layer does not start the overlay", (await page.$("canvas")) === null && (await page.$('[class*="strip"]')) === null);
+    if (SHOTS) await page.screenshot({ path: join(ROOT, ".verify", "trailer-chip.png"), omitBackground: true });
+    await page.waitForTimeout(2600);
+    const head = (await page.textContent('[class*="headline"]'))?.trim();
+    check("trailer layer brings up tonight's card on cue", !!head && (await page.$('[class*="chip"]')) === null, head?.slice(0, 48));
+    const foot = (await page.textContent('[class*="foot"]'))?.trim();
+    check("tonight's card keeps counting down", /Live in\s*0:1\d/i.test(foot ?? ""), foot);
+    const fits = await page.evaluate(() => {
+      const r = (sel) => document.querySelector(`[class*="${sel}"]`).getBoundingClientRect();
+      return r("summary").bottom < r("rule").top && r("headline").right <= 1920 - 100;
+    });
+    check("tonight's card text clears the footer", fits);
+    const face = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const el = document.querySelector('[class*="headline"]');
+      return document.fonts.check(`900 80px ${getComputedStyle(el).fontFamily.split(",")[0]}`);
+    });
+    check("tonight's card is set in the trailer's typeface", face);
+    if (SHOTS) await page.screenshot({ path: join(ROOT, ".verify", "trailer-card.png") });
+    await page.close();
+
+    // the trigger: the starting-soon source cuts to the trailer scene once, as
+    // the countdown crosses the trailer's length. A stub stands in for OBS.
+    const stub = () => {
+      window.__cuts = [];
+      window.obsstudio = { pluginVersion: "verify", setCurrentScene: (name) => window.__cuts.push(name) };
+    };
+    const soon = await ctx.newPage();
+    soon.on("pageerror", (e) => errors.push(`trailer-trigger: ${e.message}`));
+    await soon.addInitScript(stub);
+    await soon.goto(url("?mode=soon&min=1&trailer=Starting%20Soon%20Trailer&lead=57&demo=1"), { waitUntil: "networkidle" });
+    const early = await soon.evaluate(() => window.__cuts.length);
+    await soon.waitForFunction(() => window.__cuts.length > 0, null, { timeout: 8000 }).catch(() => {});
+    const timer = (await soon.textContent('[class*="scTimer"]'))?.trim();
+    await soon.waitForTimeout(1500);
+    const cuts = await soon.evaluate(() => window.__cuts);
+    check("starting soon cuts to the trailer scene at the lead", early === 0 && cuts.length === 1 && cuts[0] === "Starting Soon Trailer" && /^00:5[67]$/.test(timer ?? ""),
+      `${JSON.stringify(cuts)} at ${timer}`);
+    await soon.close();
+
+    const short = await ctx.newPage();
+    await short.addInitScript(stub);
+    await short.goto(url("?mode=soon&min=1&trailer=Starting%20Soon%20Trailer&demo=1"), { waitUntil: "networkidle" });
+    await short.waitForTimeout(2000);
+    check("a countdown shorter than the trailer never cuts", (await short.evaluate(() => window.__cuts.length)) === 0);
+    await short.close();
+
+    const off = await ctx.newPage();
+    await off.addInitScript(stub);
+    await off.goto(url("?mode=soon&min=1&lead=59&demo=1"), { waitUntil: "networkidle" });
+    await off.waitForTimeout(2500);
+    check("no ?trailer= means no scene cut", (await off.evaluate(() => window.__cuts.length)) === 0);
+    await off.close();
+  }
+
   /* ── the bus: admin panel ↔ a real overlay source ── */
   {
     const hud = await ctx.newPage();
