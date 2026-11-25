@@ -100,9 +100,13 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   const tallies = useTallies(settings.tallyDefs);
   const { cooldown, clear: clearCooldown } = useCooldowns();
   const [sceneVisible, setSceneVisible] = useState(true);
+  /* The HUD is layered over the away scene in OBS, so while brb / soon / afk
+     is up both sources are on air. The HUD stands down then and the moon's
+     pip takes clips; otherwise two cards would play with doubled audio. */
+  const [awayUp, setAwayUp] = useState(false);
 
   const clips = useClips({
-    scene,
+    canShow: scene || !awayUp,
     visible: sceneVisible,
     bannerActive: !!banner,
     pollOpen: !!poll.poll,
@@ -486,10 +490,22 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
   useEffect(() => {
     if (!bus) return;
     const off = [
-      bus.on("away.brb", (p) => sceneRef.current?.brb(p.minutes)),
-      bus.on("away.soon", (p) => sceneRef.current?.soon(p.minutes)),
-      bus.on("away.afk", () => sceneRef.current?.afk()),
-      bus.on("away.back", () => sceneRef.current?.back()),
+      bus.on("away.brb", (p) => {
+        setAwayUp(true);
+        sceneRef.current?.brb(p.minutes);
+      }),
+      bus.on("away.soon", (p) => {
+        setAwayUp(true);
+        sceneRef.current?.soon(p.minutes);
+      }),
+      bus.on("away.afk", () => {
+        setAwayUp(true);
+        sceneRef.current?.afk();
+      }),
+      bus.on("away.back", () => {
+        setAwayUp(false);
+        sceneRef.current?.back();
+      }),
       bus.on("away.reset", () => sceneRef.current?.again()),
       bus.on("tally.bump", (p) => tallies.bump(p.key, parseInt(String(p.delta), 10) || 0)),
       bus.on("tally.set", (p) => tallies.set(p.key, Math.max(0, parseInt(String(p.value), 10) || 0))),
@@ -655,7 +671,11 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
           />
         )}
 
-        {scene && <ClipPlayer key={clips.playing?.startedAt ?? "idle"} clip={clips.playing} chill={chill} />}
+        <ClipPlayer
+          key={clips.playing?.startedAt ?? "idle"}
+          clip={clips.playing}
+          where={chill ? "chill" : scene ? "away" : "hud"}
+        />
 
         {/* Chill has no HUD layered over it, so the banner comes back here —
             moved right to clear the camera frame. */}

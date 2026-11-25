@@ -60,10 +60,17 @@ export const CHILL_ZONES: readonly Zone[] = [
 ];
 
 /**
- * Picture-in-picture card, centred on the moon. 640×360 so a 16:9 clip sits
- * inside the moon's glow without covering the title stack, camera, or HUD.
+ * Picture-in-picture card. On the away scene and chill it is centred on the
+ * moon: 640×360 so a 16:9 clip sits inside the moon's glow without covering
+ * the title stack, camera, or HUD.
+ *
+ * On the HUD it hangs under the lab card, from the card's left edge to 24px
+ * off the stage's right edge, at 16:9. The top leaves room for the title chip,
+ * which sits ABOVE the frame. It covers the minimap and inventory while a clip
+ * plays; Rawad chose the spot knowing that (2026-11-25).
  */
 export const CLIP_PIP = {
+  hud: [1252, 252, 644, 362] as Rect,
   away: [1040, 220, 640, 360] as Rect,
   chill: [1100, 180, 640, 360] as Rect,
 } as const;

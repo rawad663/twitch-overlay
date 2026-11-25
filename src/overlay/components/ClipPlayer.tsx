@@ -19,10 +19,11 @@ function embedSrc(slug: string) {
 }
 
 /**
- * 16:9 card centred on the moon. Title is React text — clip titles are
- * viewer-written and never go near dangerouslySetInnerHTML.
+ * 16:9 card: over the moon on scene sources, under the lab card on the HUD.
+ * Title is React text — clip titles are viewer-written and never go near
+ * dangerouslySetInnerHTML.
  */
-export function ClipPlayer({ clip, chill }: { clip: PlayingClip | null; chill: boolean }) {
+export function ClipPlayer({ clip, where }: { clip: PlayingClip | null; where: keyof typeof CLIP_PIP }) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export function ClipPlayer({ clip, chill }: { clip: PlayingClip | null; chill: b
 
   if (!clip) return null;
 
-  const rect = chill ? CLIP_PIP.chill : CLIP_PIP.away;
+  const rect = CLIP_PIP[where];
   const duration = Math.max(1, (clip.until - clip.startedAt) / 1000);
 
   return (

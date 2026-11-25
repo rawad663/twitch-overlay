@@ -16,7 +16,7 @@ export type PlayingClip = {
 };
 
 export type ClipOpts = {
-  scene: boolean;
+  canShow: boolean;
   visible: boolean;
   bannerActive: boolean;
   pollOpen: boolean;
@@ -30,8 +30,9 @@ function hideMs(duration: number) {
 }
 
 /**
- * Scene-side clip rotation. The HUD mounts this too so it can hold the
- * library and answer `clip.resolve`, but `request` / `playNow` no-op there.
+ * Clip rotation, mounted by every source. `canShow` picks the one that plays:
+ * the HUD over gameplay, the away / chill scene while it is up. The HUD also
+ * answers `clip.resolve`, since it is the source with the token.
  */
 export function useClips(opts: ClipOpts) {
   const [library, setLibrary] = useState<ClipEntry[]>(loadLibrary);
@@ -61,8 +62,8 @@ export function useClips(opts: ClipOpts) {
   }, [opts.clipsEnabled]);
 
   useEffect(() => {
-    if (!opts.visible) setPlaying(null);
-  }, [opts.visible]);
+    if (!opts.visible || !opts.canShow) setPlaying(null);
+  }, [opts.visible, opts.canShow]);
 
   const playEntry = useCallback((entry: ClipEntry, user: string) => {
     const now = Date.now();
@@ -95,7 +96,7 @@ export function useClips(opts: ClipOpts) {
       const enabled = libraryRef.current.filter((c) => c.enabled);
       if (
         !clipAllowed({
-          scene: o.scene,
+          canShow: o.canShow,
           visible: o.visible,
           playing: !!playingRef.current,
           bannerActive: o.bannerActive,
@@ -121,7 +122,7 @@ export function useClips(opts: ClipOpts) {
 
   const playNow = useCallback(
     (slug: string | undefined, user: string) => {
-      if (!optsRef.current.scene) return;
+      if (!optsRef.current.canShow || !optsRef.current.visible) return;
       const list = libraryRef.current;
       const entry = slug ? (list.find((c) => c.slug === slug) ?? null) : pickClip(list, playsRef.current, lastSlug.current);
       if (!entry) return;
