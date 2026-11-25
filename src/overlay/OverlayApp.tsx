@@ -540,14 +540,14 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       bus.on("clip.play", (p) => clips.playNow(p.slug, "the panel")),
       bus.on("clip.stop", () => clips.stop()),
       bus.on("clip.resolve", (p) => {
-        if (!params.token || !params.clientId || !p.slug) return;
-        void fetchClip({ token: params.token, clientId: params.clientId }, p.slug).then((meta) => {
+        if (!token || !clientId || !p.slug) return;
+        void fetchClip({ token, clientId }, p.slug).then((meta) => {
           if (meta) bus.send("clip.meta", meta);
         });
       }),
     ];
     return () => off.forEach((fn) => fn());
-  }, [bus, tallies, poll, testAlert, say, fate, clearCooldown, clips.replace, clips.playNow, clips.stop, replaceCards, showCard, nextCard, params.token, params.clientId]);
+  }, [bus, tallies, poll, testAlert, say, fate, clearCooldown, clips.replace, clips.playNow, clips.stop, replaceCards, showCard, nextCard, token, clientId]);
 
   /* ── bus: status out ── */
   const hello = useCallback(() => {
