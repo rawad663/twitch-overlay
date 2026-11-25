@@ -141,6 +141,7 @@ export function AdminPanel() {
           onEnabled={(clipsEnabled) => patch({ clipsEnabled })}
           plays={live?.clipPlays}
           clip={live?.clip}
+          hudSignedIn={live?.role === "hud" && live.token}
           bus={bus}
           send={send}
           disabled={!connected}

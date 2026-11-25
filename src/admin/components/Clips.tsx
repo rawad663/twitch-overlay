@@ -17,6 +17,7 @@ export function Clips({
   onEnabled,
   plays,
   clip,
+  hudSignedIn,
   bus,
   send,
   disabled,
@@ -25,6 +26,8 @@ export function Clips({
   onEnabled: (on: boolean) => void;
   plays: Record<string, number> | undefined;
   clip: ClipSnapshot | undefined;
+  /** the HUD is alive and holds a token, so it can answer `clip.resolve` */
+  hudSignedIn: boolean;
   bus: Bus | null;
   send: <T extends BusType>(type: T, payload: BusPayloads[T], label: string) => void;
   disabled: boolean;
@@ -47,6 +50,14 @@ export function Clips({
     const loaded = loadLibrary();
     if (loaded.length) bus.send("clips", { clips: loaded });
   }, [bus]);
+
+  /* `clip.resolve` goes out once, on add. If no signed-in HUD heard it, the
+     clip would sit on "resolving…" forever — so ask again whenever one shows
+     up. Answers merge by slug, so a repeat is harmless. */
+  useEffect(() => {
+    if (!bus || !hudSignedIn) return;
+    for (const c of loadLibrary()) if (c.unresolved) bus.send("clip.resolve", { slug: c.slug });
+  }, [bus, hudSignedIn]);
 
   useEffect(() => {
     if (!bus) return;
