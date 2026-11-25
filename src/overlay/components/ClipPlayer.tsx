@@ -1,30 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLatest } from "@/bus/useBus";
 import { CLIP_PIP } from "@/design/stage";
 import type { PlayingClip } from "../clips/useClips";
+import { fetchClipVideo } from "../twitch/clipVideo";
 import s from "../overlay.module.css";
 
 const FADE_MS = 400;
 
-function embedSrc(slug: string) {
-  const parent = typeof window !== "undefined" ? window.location.hostname : "localhost";
-  const params = new URLSearchParams({
-    clip: slug,
-    parent,
-    autoplay: "true",
-    muted: "false",
-  });
-  return `https://clips.twitch.tv/embed?${params}`;
-}
-
 /**
  * 16:9 card: over the moon on scene sources, under the lab card on the HUD.
- * Title is React text — clip titles are viewer-written and never go near
- * dangerouslySetInnerHTML.
+ * A bare <video> with no controls rather than Twitch's embed — see
+ * `twitch/clipVideo.ts` for why. Title is React text: clip titles are
+ * viewer-written and never go near dangerouslySetInnerHTML.
+ *
+ * `onEnd` fires when the clip finishes or can't be fetched; the hook's own
+ * `until` timer stays as the hard cap.
  */
-export function ClipPlayer({ clip, where }: { clip: PlayingClip | null; where: keyof typeof CLIP_PIP }) {
+export function ClipPlayer({
+  clip,
+  where,
+  onEnd,
+  onDuration,
+}: {
+  clip: PlayingClip | null;
+  where: keyof typeof CLIP_PIP;
+  onEnd: () => void;
+  onDuration: (seconds: number) => void;
+}) {
   const [leaving, setLeaving] = useState(false);
+  const [src, setSrc] = useState<string | null>(null);
+  const [barSeconds, setBarSeconds] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+  const video = useRef<HTMLVideoElement>(null);
+
+  const onEndRef = useLatest(onEnd);
+  const finish = useCallback(() => {
+    setLeaving(true);
+    setTimeout(() => onEndRef.current(), FADE_MS);
+  }, [onEndRef]);
+
+  useEffect(() => {
+    if (!clip) return;
+    const ac = new AbortController();
+    void fetchClipVideo(clip.slug, ac.signal).then((url) => {
+      if (ac.signal.aborted) return;
+      if (url) setSrc(url);
+      else finish();
+    });
+    return () => ac.abort();
+  }, [clip, finish]);
 
   useEffect(() => {
     if (!clip) return;
@@ -36,7 +62,22 @@ export function ClipPlayer({ clip, where }: { clip: PlayingClip | null; where: k
   if (!clip) return null;
 
   const rect = CLIP_PIP[where];
-  const duration = Math.max(1, (clip.until - clip.startedAt) / 1000);
+  const fallbackSeconds = Math.max(1, (clip.until - clip.startedAt) / 1000);
+
+  const start = () => {
+    const v = video.current;
+    if (!v) return;
+    if (Number.isFinite(v.duration) && v.duration > 0) {
+      setBarSeconds(v.duration);
+      onDuration(v.duration);
+    }
+    // OBS's CEF allows unmuted autoplay; a normal browser tab may not. Muted
+    // beats a frozen first frame there.
+    v.play().catch(() => {
+      v.muted = true;
+      void v.play().catch(() => finish());
+    });
+  };
 
   return (
     <div
@@ -48,14 +89,26 @@ export function ClipPlayer({ clip, where }: { clip: PlayingClip | null; where: k
         <div className={s.clipBy}>requested by {clip.user}</div>
       </div>
       <div className={s.clipFrame}>
-        <iframe
-          src={embedSrc(clip.slug)}
-          title={clip.title}
-          allow="autoplay"
-          sandbox="allow-scripts allow-same-origin allow-popups"
-        />
+        {src && (
+          <video
+            ref={video}
+            src={src}
+            playsInline
+            preload="auto"
+            disablePictureInPicture
+            onLoadedMetadata={start}
+            onPlaying={() => setRunning(true)}
+            onEnded={() => finish()}
+            onError={() => finish()}
+          />
+        )}
         <div className={s.clipBar}>
-          <i style={{ animationDuration: `${duration}s` }} />
+          <i
+            style={{
+              animationDuration: `${barSeconds ?? fallbackSeconds}s`,
+              animationPlayState: running ? "running" : "paused",
+            }}
+          />
         </div>
       </div>
     </div>

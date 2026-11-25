@@ -50,6 +50,12 @@ export function useClips(opts: ClipOpts) {
 
   const stop = useCallback(() => setPlaying(null), []);
 
+  /* The library's duration is a 30s guess until Helix resolves it; the video
+     element knows the real one, so the cap timer follows it. */
+  const retime = useCallback((seconds: number) => {
+    setPlaying((cur) => (cur ? { ...cur, until: cur.startedAt + hideMs(seconds) } : cur));
+  }, []);
+
   useEffect(() => {
     if (!playing) return;
     const ms = Math.max(0, playing.until - Date.now());
@@ -148,6 +154,7 @@ export function useClips(opts: ClipOpts) {
     request,
     playNow,
     stop,
+    retime,
     clipPlays,
     snapshot,
     clipsOn,

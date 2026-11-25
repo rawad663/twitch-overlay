@@ -675,6 +675,8 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
           key={clips.playing?.startedAt ?? "idle"}
           clip={clips.playing}
           where={chill ? "chill" : scene ? "away" : "hud"}
+          onEnd={clips.stop}
+          onDuration={clips.retime}
         />
 
         {/* Chill has no HUD layered over it, so the banner comes back here —
