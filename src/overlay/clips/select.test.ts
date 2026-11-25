@@ -16,7 +16,7 @@ function clip(slug: string, enabled = true): ClipEntry {
 
 function gate(over: Partial<ClipGate> = {}): ClipGate {
   return {
-    scene: true,
+    canShow: true,
     visible: true,
     playing: false,
     bannerActive: false,
@@ -75,12 +75,12 @@ describe("pickClip", () => {
 });
 
 describe("clipAllowed", () => {
-  it("allows a clean request on a visible scene", () => {
+  it("allows a clean request on a visible source", () => {
     expect(clipAllowed(gate())).toBe(true);
   });
 
-  it("rejects the HUD and a hidden source", () => {
-    expect(clipAllowed(gate({ scene: false }))).toBe(false);
+  it("rejects a source that has stood down and a hidden source", () => {
+    expect(clipAllowed(gate({ canShow: false }))).toBe(false);
     expect(clipAllowed(gate({ visible: false }))).toBe(false);
   });
 

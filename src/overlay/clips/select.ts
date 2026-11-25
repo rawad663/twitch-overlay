@@ -41,7 +41,8 @@ export function pickClip(
 }
 
 export type ClipGate = {
-  scene: boolean;
+  /** this source is the one that shows clips right now (see `canShow` in OverlayApp) */
+  canShow: boolean;
   visible: boolean;
   playing: boolean;
   bannerActive: boolean;
@@ -57,7 +58,7 @@ export type ClipGate = {
 
 /** Every chat-side limit except the per-viewer ledger (mods skip that one). */
 export function clipAllowed(g: ClipGate): boolean {
-  if (!g.scene || !g.visible) return false;
+  if (!g.canShow || !g.visible) return false;
   if (g.playing) return false;
   if (g.bannerActive || g.pollOpen) return false;
   if (!g.clipsEnabled || g.librarySize <= 0) return false;

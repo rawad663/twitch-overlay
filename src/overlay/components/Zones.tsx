@@ -15,6 +15,7 @@ export function Zones({ chill, scene }: { chill: boolean; scene: boolean }) {
   } else {
     // the default spot; the dock can move the card itself
     zones.push({ label: "support card (default)", rect: HUD_LANES.support });
+    zones.push({ label: "clip pip", rect: CLIP_PIP.hud });
   }
   return (
     <>
