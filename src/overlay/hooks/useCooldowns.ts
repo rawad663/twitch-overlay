@@ -9,7 +9,7 @@ import { useCallback, useRef } from "react";
 export function useCooldowns() {
   const logs = useRef(new Map<string, Map<string, number>>());
 
-  /** true if the command is allowed right now (and starts the cooldown). */
+  /** 0 if the command is allowed right now (and starts the cooldown), else ms left. */
   const cooldown = useCallback((name: string, login: string, seconds: number) => {
     let log = logs.current.get(name);
     if (!log) {
@@ -18,15 +18,11 @@ export function useCooldowns() {
     }
     const now = Date.now();
     const last = log.get(login) ?? 0;
-    if (now - last < seconds * 1000) return false;
+    const left = seconds * 1000 - (now - last);
+    if (left > 0) return left;
     log.set(login, now);
-    return true;
+    return 0;
   }, []);
 
-  /** The panel shouldn't be rate-limited by a viewer's ledger. */
-  const clear = useCallback((name: string, login: string) => {
-    logs.current.get(name)?.delete(login);
-  }, []);
-
-  return { cooldown, clear };
+  return { cooldown };
 }

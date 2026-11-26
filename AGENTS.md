@@ -29,7 +29,7 @@ scripts/                verify · compare · diff-shots (Playwright)
 
 ## Hard rules
 
-- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-5"`) only when that contract actually changes.
+- **The Bus lives in `src/bus/` and only there.** It used to be duplicated by hand between two files; that is what the module exists to prevent. `BUS_KEY`, the channel name, `v: 1`, the id format, the 500ms poll and the 200→100 `seen` ring are the wire contract. Bump `BUILD` (currently `"bus-6"`) only when that contract actually changes.
 - **The panel must not set `Bus.role`.** Sources set it and auto-ack; if the panel set one it would ack itself and delivery confirmation would be a lie.
 - **Never put tokens or secrets in the repo or control-bus messages.** The OBS dock validates and saves the token + public client ID in shared local storage via `src/bus/credentials.ts`. Sources subscribe through `useCredentialsSnapshot`; saved credentials override legacy URL queries (`?token=` + `?client_id=`). Removing credentials stores an empty pair to disable legacy URL tokens too. `CONFIG.clientId` is the public app id only. Scopes: `moderator:read:followers` (follow alerts), `channel:read:subscriptions` (sub milestone). Follower totals work with any valid token.
 - **Ember is gains only** — subs, gifts, raids, big cheers, completed goals. Follows stay violet. Reach it through `--accent-gain`, never `--ember` directly. `vibe.test.ts` enforces it for the mood palettes.
@@ -88,6 +88,9 @@ The moon's timestamp array is the one piece of shared mutable state. `useMoon` t
 | `rawad-twitch-auth` | dock after Twitch validation | Local-only `{ token, clientId }`; never send in bus messages, diagnostics, or settings; empty pair disables auth |
 | `rawad-clips` | dock (sources persist a copy) | Clip rotation library |
 | `rawad-clip-plays` | overlay | `{ [slug]: { count, lastAt } }` |
+| `rawad-clip-limits` | whichever source wins a clip claim | `{ lastAt, hour[] }` — the 2-minute and hourly clip limits, shared so a HUD clip also holds the away scene |
+| `rawad-claims` | `src/overlay/claim.ts` | Last 60 claimed ids (`clip:<msg id>`, `cd:<msg id>`) so one chat line acts once across sources |
+| `rawad-cooldown-replies` | `LabChat.cooldownReply` | `{ "cmd:login": at }` — one cooldown reply per viewer per command per minute |
 | `rawad-cards` | dock (sources persist a copy) | Support card library: `{ v, on, paused, seconds, x, y, cards }` |
 | `rawad-follows-{channel}` | shared follow owner | Status and 30-second / 200-event journal; no tokens |
 
@@ -95,13 +98,17 @@ Every access goes through `src/bus/storage.ts` — OBS can block storage outrigh
 
 ### Bus types
 
-Panel → sources: `away.brb|soon|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `clips`, `clip.play|stop|resolve`, `cards`, `card.show|next`, `ping`.
+Panel → sources: `away.brb|soon|afk|back|reset`, `tally.bump|set`, `poll.open|close`, `alert.test`, `oracle.say|fate`, `settings`, `clips`, `clip.play|stop|resolve`, `cards`, `card.show|next`, `chat.test` `{ text, user, mod }`, `ping`.
 
-Sources → panel: `hello` (2s heartbeat, plus HUD-only `totals`, `card`, and `clip` / `clipPlays`), `ack` `{ forId, forType, role }`, `clip.meta`.
+Sources → panel: `hello` (2s heartbeat, plus HUD-only `totals`, `card`, and `clip` / `clipPlays`), `ack` `{ forId, forType, role }`, `clip.meta`, `chat.result` `{ forId, role, view, visible, outcome }`. Every `hello` also carries `visible` / `visibleKnown`: OBS only reports visibility on a *change*, so the HUD yields clips only to a scene source OBS has actually confirmed on air.
 
 Source → sources: `follow.sync` carries the shared listener status and recent follow events. No auto-ack for this heartbeat. `hello` also carries `followNotice` and `twitchNotice` for admin-only diagnostics. `src/bus/follows.ts` owns cross-source coordination; only the Web Lock holder starts EventSub, and it closes the socket before releasing ownership. Missing lock support fails visibly in the dock instead of creating duplicate sockets.
 
 Every source receives every command on purpose (HUD banner + scene shooting star stay in step). Inapplicable handlers no-op.
+
+**Anything that must happen once is claimed** (`claimOnce` in `src/overlay/claim.ts`: Web Lock + an id ring) on the Twitch message id, or the bus message id for dock buttons. A clip and a cooldown reply both go through it. A source that might be on air but can't prove it (`visibleKnown` false) waits 400ms before claiming, so the one actually on screen wins.
+
+**`handle()` returns a `CommandOutcome`** for every `!command` (null for plain chat). The dock tester (`chat.test`) shows them per source, and an outcome with `leftMs` is a timer the viewer is told about in chat. Keep new gates returning a reason, never a bare `return`. A new command also gets a row in `src/config/commands.ts` (the dock's list); `commands.test.ts` fails if a row's *who* disagrees with handle().
 
 **The `settings` message is deliberately partial.** The panel has no UI for `brbMinutes` / `fullMoonMessages` / `bigCheer`, and `mergeSettings` only takes keys that are present and correctly typed, so those survive. Sending a full object would clobber them — there's a test.
 

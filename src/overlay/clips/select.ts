@@ -1,4 +1,5 @@
-import type { ClipEntry, ClipPlays } from "@/bus/types";
+import type { ClipEntry, ClipPlays, CommandOutcome } from "@/bus/types";
+import { formatLeft } from "../claim";
 
 /**
  * Least-played enabled clip. Ties go to the one idle longest, then a random
@@ -56,13 +57,29 @@ export type ClipGate = {
   clipHourlyCap: number;
 };
 
-/** Every chat-side limit except the per-viewer ledger (mods skip that one). */
-export function clipAllowed(g: ClipGate): boolean {
-  if (!g.canShow || !g.visible) return false;
-  if (g.playing) return false;
-  if (g.bannerActive || g.pollOpen) return false;
-  if (!g.clipsEnabled || g.librarySize <= 0) return false;
-  if (g.now - g.lastGlobalAt < g.clipCooldown * 1000) return false;
+/**
+ * Every chat-side limit except the per-viewer ledger (mods skip that one).
+ * Null means allowed; otherwise the reason, so the dock tester can say which
+ * gate held it and chat can be told how long a timer has left.
+ */
+export function clipBlock(g: ClipGate): CommandOutcome | null {
+  const no = (text: string): CommandOutcome => ({ cmd: "clip", ok: false, text });
+  if (!g.canShow) return no("another source has the clips while the away / lounge scene is on air");
+  if (!g.visible) return no("this source is hidden in OBS");
+  if (!g.clipsEnabled) return no("clip rotation is switched off in the dock");
+  if (g.librarySize <= 0) return no("no enabled clips in the dock library");
+  if (g.playing) return no("a clip is already playing");
+  if (g.bannerActive) return no("an alert banner is on screen");
+  if (g.pollOpen) return no("a poll is open");
+  const sinceLast = g.now - g.lastGlobalAt;
+  if (sinceLast < g.clipCooldown * 1000) {
+    const left = g.clipCooldown * 1000 - sinceLast;
+    return { cmd: "clip", ok: false, text: `channel cooldown — ${formatLeft(left)} left`, leftMs: left };
+  }
   const hour = g.hourlyAt.filter((t) => g.now - t < 3_600_000);
-  return hour.length < g.clipHourlyCap;
+  if (hour.length >= g.clipHourlyCap) {
+    const left = 3_600_000 - (g.now - Math.min(...hour));
+    return { cmd: "clip", ok: false, text: `hourly cap of ${g.clipHourlyCap} reached — ${formatLeft(left)} left`, leftMs: left };
+  }
+  return null;
 }

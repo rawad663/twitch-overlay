@@ -75,3 +75,24 @@ it("cleans the card headline and only accepts known lab kinds", () => {
   expect(mergeSettings(s, { labKind: "boss" as never }).labKind).toBe("dev");
   expect(mergeSettings(s, { volume: 0.2 }).labTitle).toBe(s.labTitle);
 });
+
+it("threads one cooldown reply per message across sources, and at most one per viewer per minute", async () => {
+  const a = new LabChat(auth, "rawad663", vi.fn()); const b = new LabChat(auth, "rawad663", vi.fn());
+  await Promise.all([a.start(), b.start()]);
+  await Promise.all([a.cooldownReply("m1", "wick", "clip", "@wick !clip is on cooldown"), b.cooldownReply("m1", "wick", "clip", "@wick !clip is on cooldown")]);
+  expect(send).toHaveBeenCalledTimes(1);
+  const body = JSON.parse(String(send.mock.calls[0]![1].body));
+  expect(body).toMatchObject({ message: "@wick !clip is on cooldown", reply_parent_message_id: "m1" });
+  await a.cooldownReply("m2", "wick", "clip", "again"); expect(send).toHaveBeenCalledTimes(1);
+  await a.cooldownReply("m3", "wick", "fate", "other command"); expect(send).toHaveBeenCalledTimes(2);
+  vi.advanceTimersByTime(60000);
+  await a.cooldownReply("m4", "wick", "clip", "a minute later"); expect(send).toHaveBeenCalledTimes(3);
+});
+
+it("reports why it can't reply, for the dock tester", async () => {
+  validate.scopes = [];
+  const a = new LabChat(auth, "rawad663", vi.fn());
+  expect(a.blocked()).toMatch(/checking/);
+  await a.start();
+  expect(a.blocked()).toMatch(/user:write:chat/);
+});

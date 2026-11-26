@@ -713,3 +713,46 @@ i.cardThumb.cardThumbOrb {
   color: var(--rune);
   font-size: 18px;
 }
+
+/* ── Commands ── */
+.cmdGroup {
+  margin-top: 10px;
+}
+.cmdGroupHead {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rune);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.cmdRow {
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(169, 123, 255, 0.08);
+}
+.cmdHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cmdName {
+  font-family: var(--font-num);
+  font-size: 14px;
+  color: var(--cream);
+  word-break: break-word;
+}
+.cmdWhat {
+  font-size: 12px;
+  margin-top: 2px;
+}
+.cmdWhere {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 1px;
+  line-height: 1.4;
+}
+.cmdLive {
+  color: var(--bad);
+}

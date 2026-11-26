@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PRESENCE_KEY, type AlertKind, type HelloPayload, type Settings, type Totals } from "@/bus/types";
+import {
+  PRESENCE_KEY,
+  type AlertKind,
+  type CommandOutcome,
+  type HelloPayload,
+  type Settings,
+  type SourceView,
+  type Totals,
+} from "@/bus/types";
 import { BUILD } from "@/bus/types";
 import { writeJSON } from "@/bus/storage";
 import { SharedFollows } from "@/bus/follows";
@@ -34,7 +42,9 @@ import type { SceneStatus } from "./engine/types";
 import { Irc, type IrcStatus } from "./chat/irc";
 import { LabChat } from "./chat/lab";
 import { labActive } from "@/config/lab";
-import { handle } from "./chat/handle";
+import { handle, type ChatDeps } from "./chat/handle";
+import type { ChatMessage } from "./chat/parse";
+import { claimOnce, formatLeft } from "./claim";
 import type { BalloonGlyph } from "./chat/emotes";
 import { EventSub, type EventSubStatus } from "./twitch/eventsub";
 import { Milestones, EMPTY_TOTALS } from "./twitch/milestones";
@@ -55,7 +65,7 @@ import { useClips } from "./clips/useClips";
 import { useSupportCards } from "./cards/useSupportCards";
 import { cardSrcs, useCardImageUrls } from "./cards/images";
 import { SupportCard } from "./components/SupportCard";
-import { fetchClip } from "./twitch/helix";
+import { fetchClip, fetchShoutout } from "./twitch/helix";
 import { trailerDue } from "./trailer/trailer";
 import s from "./overlay.module.css";
 
@@ -98,15 +108,45 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
 
   const poll = usePoll();
   const tallies = useTallies(settings.tallyDefs);
-  const { cooldown, clear: clearCooldown } = useCooldowns();
+  const { cooldown } = useCooldowns();
   const [sceneVisible, setSceneVisible] = useState(true);
+  // true once OBS has actually reported visibility (see HelloPayload.visibleKnown)
+  const [visKnown, setVisKnown] = useState(false);
+  const where: SourceView = chill ? "chill" : scene ? "away" : "hud";
   /* The HUD is layered over the away scene in OBS, so while brb / soon / afk
      is up both sources are on air. The HUD stands down then and the moon's
      pip takes clips; otherwise two cards would play with doubled audio. */
   const [awayUp, setAwayUp] = useState(false);
+  /* …and the dock is not the only way an away scene gets on air: an OBS scene
+     switch, a `?mode=soon` URL or a HUD reload all bypass it. So the HUD also
+     listens to the scene sources' heartbeat and yields to any that OBS has
+     confirmed visible. */
+  const sceneBeats = useRef(new Map<string, { onAir: boolean; at: number }>());
+  const [sceneOnAir, setSceneOnAir] = useState(false);
+  useEffect(() => {
+    if (!bus || scene) return;
+    return bus.on("hello", (p, msg) => {
+      if (p.role !== "scene" || !p.visibleKnown) return;
+      sceneBeats.current.set(msg.from, { onAir: !!p.visible, at: Date.now() });
+    });
+  }, [bus, scene]);
+  useInterval(
+    () => {
+      const now = Date.now();
+      let on = false;
+      for (const [id, b] of sceneBeats.current) {
+        if (now - b.at > 6000) sceneBeats.current.delete(id);
+        else if (b.onAir) on = true;
+      }
+      setSceneOnAir(on);
+    },
+    scene ? null : 1000,
+  );
 
   const clips = useClips({
-    canShow: scene || !awayUp,
+    canShow: scene || (!awayUp && !sceneOnAir),
+    preferred: scene ? visKnown : true,
+    modsOnly: !scene,
     visible: sceneVisible,
     bannerActive: !!banner,
     pollOpen: !!poll.poll,
@@ -240,6 +280,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       const visible = detail ? detail.visible !== false : true;
       sound.setFollowVisible((!scene || chill) && visible);
       setSceneVisible(visible);
+      setVisKnown(true);
       if (!visible) flushSession();
       sceneRef.current?.setVisible(visible);
       balloons.setVisible(visible);
@@ -249,6 +290,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       window.obsstudio.onVisibilityChange = (v: boolean) => {
         sound.setFollowVisible((!scene || chill) && !!v);
         setSceneVisible(!!v);
+        setVisKnown(true);
         if (!v) flushSession();
         sceneRef.current?.setVisible(!!v);
         balloons.setVisible(!!v);
@@ -297,12 +339,12 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     [director],
   );
 
+  // the per-viewer gate lives in handle(), so the dock's button is never rate-limited
   const rollFate = useCallback(
     (user: string, lines: readonly string[]) => {
-      if (!cooldown("fate", user, CONFIG.fateCooldown)) return;
       say(`The moon answers ${user} —`, pick(lines));
     },
-    [cooldown, say],
+    [say],
   );
   const fate = useCallback((user: string) => rollFate(user, FATES), [rollFate]);
   const fatePoe = useCallback((user: string) => rollFate(user, FATES_POE), [rollFate]);
@@ -358,10 +400,54 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     [alerts, ping, balloons],
   );
 
+  /* ── !so ──
+     Goes wherever clips go right now (HUD over gameplay, the moon when an
+     away / lounge source is on air), claimed so exactly one source looks the
+     channel up, plays the clip and posts the line. */
+  const clipOwner = useLatest({
+    canShow: scene || (!awayUp && !sceneOnAir),
+    visible: sceneVisible,
+    preferred: scene ? visKnown : true,
+  });
+  const playShoutout = clips.playShoutout;
+  const shoutout = useCallback(
+    async (login: string, msgId: string, test = false): Promise<CommandOutcome> => {
+      const no = (text: string): CommandOutcome => ({ cmd: "so", ok: false, text });
+      const own = clipOwner.current;
+      if (!own.canShow) return no("the away / lounge source on air does it");
+      if (!own.visible) return no("this source is hidden in OBS");
+      if (!own.preferred) await new Promise((r) => setTimeout(r, 400));
+      if (!(await claimOnce(`so:${msgId || Math.random().toString(36)}`))) {
+        return { cmd: "so", ok: true, text: "another source is doing it" };
+      }
+      if (!token || !clientId) return no("needs the Twitch sign-in (Milestones) to look the channel up");
+      const so = await fetchShoutout({ token, clientId }, login);
+      if (!so) return no(`no Twitch channel called "${login}" (or Twitch didn't answer)`);
+
+      const line = `Go check out ${so.name} at https://twitch.tv/${so.login}${so.game ? ` — they were last playing ${so.game}` : ""}!`;
+      if (so.clip) playShoutout(so.clip, { login: so.login, name: so.name, game: so.game });
+      else say("Go check them out —", `${so.name} · twitch.tv/${so.login}${so.game ? ` · ${so.game}` : ""}`);
+
+      const lab = labChat.current;
+      const blocked = lab ? lab.blocked() : "demo mode";
+      let chat: string;
+      if (blocked) chat = `chat line NOT sent: ${blocked}`;
+      else if (test) chat = "chat line ready (not sent from the tester)";
+      else {
+        void lab!.say(line);
+        chat = "chat line sent";
+      }
+      const shown = so.clip ? `playing “${so.clip.title}”` : "they have no clips — banner instead";
+      return { cmd: "so", ok: true, text: `shoutout to ${so.name} — ${shown} · ${chat}` };
+    },
+    [clipOwner, token, clientId, playShoutout, say],
+  );
+
   /* ── chat ── */
   const deps = useMemo(
-    () => ({
+    (): ChatDeps => ({
       chill,
+      where,
       ping,
       star: (login: string, name: string) => {
         ledger.star(login, name);
@@ -384,10 +470,23 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       scene: {
         wave: (n: string) => sceneRef.current?.wave(n),
         bloom: (l: string) => sceneRef.current?.bloom(l),
-        brb: (m?: string) => sceneRef.current?.brb(m),
-        soon: (m?: string) => sceneRef.current?.soon(m),
-        afk: () => sceneRef.current?.afk(),
-        back: () => sceneRef.current?.back(),
+        // the HUD has no scene, but it still has to hand clips over
+        brb: (m?: string) => {
+          setAwayUp(true);
+          sceneRef.current?.brb(m);
+        },
+        soon: (m?: string) => {
+          setAwayUp(true);
+          sceneRef.current?.soon(m);
+        },
+        afk: () => {
+          setAwayUp(true);
+          sceneRef.current?.afk();
+        },
+        back: () => {
+          setAwayUp(false);
+          sceneRef.current?.back();
+        },
       },
       fate,
       fatePoe,
@@ -409,9 +508,32 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       moonHeadroom: () =>
         Math.max(0, CONFIG.fullMoonMessages - moon.beats.current.length - 1),
       clip: clips.request,
+      lab: (msgId: string): CommandOutcome => {
+        const lab = labChat.current;
+        if (!lab) return { cmd: "lab", ok: false, text: "chat replies are off in demo mode" };
+        const blocked = lab.blocked();
+        if (blocked) return { cmd: "lab", ok: false, text: blocked };
+        const left = lab.labLeft();
+        // no leftMs: the answer is already sitting in chat, a "cooldown" reply would be noise
+        if (left) return { cmd: "lab", ok: false, text: `answered ${formatLeft(15000 - left)} ago — next answer in ${formatLeft(left)}` };
+        void lab.reply(msgId);
+        return { cmd: "lab", ok: true, text: "replying in chat" };
+      },
+      shoutout: (login: string, msgId: string) => shoutout(login, msgId),
     }),
-    [chill, ping, ledger, scheduleSave, alerts, fate, fatePoe, say, testAlert, tallies, poll, cooldown, moon, clips.request, balloons],
+    [shoutout, chill, where, ping, ledger, scheduleSave, alerts, fate, fatePoe, say, testAlert, tallies, poll, cooldown, moon, clips.request, balloons],
   );
+
+  /** A viewer whose command is held by a timer hears so in chat, threaded under their message. */
+  const tellViewer = useCallback((m: ChatMessage, o: CommandOutcome | null) => {
+    if (!o?.leftMs || !m.id) return;
+    void labChat.current?.cooldownReply(
+      m.id,
+      m.login,
+      o.cmd,
+      `@${m.user} !${o.cmd} is on cooldown — try again in ${formatLeft(o.leftMs)}`,
+    );
+  }, []);
 
   // The IRC socket outlives any single render, so it reaches the current
   // dispatch table through a ref rather than being torn down per keystroke.
@@ -437,12 +559,12 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
     }
 
     const irc = new Irc((m) => {
-      if (m.kind === "chat" && m.msg.trim().toLowerCase() === "!lab") void labChat.current?.reply();
-      handle(m, depsRef.current);
+      const r = handle(m, depsRef.current);
+      if (r && m.kind === "chat") void Promise.resolve(r).then((o) => tellViewer(m, o));
     }, setIrcStatus);
     irc.connect();
     return () => irc.destroy();
-  }, [demo, chill, depsRef]);
+  }, [demo, chill, depsRef, tellViewer]);
 
   useEffect(() => {
     if (demo || !bus) return;
@@ -519,7 +641,6 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       }),
       bus.on("oracle.fate", (p) => {
         const u = p.user || "the panel";
-        clearCooldown("fate", u); // the panel shouldn't be rate-limited
         fate(u);
       }),
       bus.on("settings", (p) => {
@@ -537,7 +658,7 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       }),
       bus.on("card.show", (p) => showCard(p.id)),
       bus.on("card.next", () => nextCard()),
-      bus.on("clip.play", (p) => clips.playNow(p.slug, "the panel")),
+      bus.on("clip.play", (p, msg) => void clips.playNow(p.slug, "the panel", msg.id)),
       bus.on("clip.stop", () => clips.stop()),
       bus.on("clip.resolve", (p) => {
         if (!token || !clientId || !p.slug) return;
@@ -547,7 +668,59 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       }),
     ];
     return () => off.forEach((fn) => fn());
-  }, [bus, tallies, poll, testAlert, say, fate, clearCooldown, clips.replace, clips.playNow, clips.stop, replaceCards, showCard, nextCard, token, clientId]);
+  }, [bus, tallies, poll, testAlert, say, fate, clips.replace, clips.playNow, clips.stop, replaceCards, showCard, nextCard, token, clientId]);
+
+  /* ── bus: the dock's command tester ──
+     The line goes through the SAME handle() as real chat, against this
+     source's real state, so "works in the tester" means "works on stream".
+     Two things are dry-run because they would post to the real channel: the
+     !lab answer and the cooldown reply. Their readiness is reported instead. */
+  useEffect(() => {
+    if (!bus) return;
+    return bus.on("chat.test", (p, msg) => {
+      const user = (p.user || "test_viewer").trim();
+      const m: ChatMessage = {
+        kind: "chat",
+        id: msg.id,
+        bits: 0,
+        login: user.toLowerCase(),
+        user,
+        msg: (p.text || "").trim(),
+        mod: !!p.mod,
+        glyphs: [],
+      };
+      const live = depsRef.current;
+      const deps: ChatDeps = {
+        ...live,
+        // a test line should never greet test_viewer with a banner that then blocks !clip
+        firstMessage: () => false,
+        shoutout: (login, id) => shoutout(login, id, true),
+        lab: () => {
+          const lab = labChat.current;
+          if (!lab) return { cmd: "lab", ok: false, text: "chat replies are off in demo mode" };
+          const blocked = lab.blocked();
+          if (blocked) return { cmd: "lab", ok: false, text: blocked };
+          const left = lab.labLeft();
+          if (left) return { cmd: "lab", ok: false, text: `shared cooldown — ${formatLeft(left)} left` };
+          return { cmd: "lab", ok: true, text: "ready — would answer in chat (not sent from the tester)" };
+        },
+      };
+      void Promise.resolve(handle(m, deps)).then((o) => {
+        let outcome = o;
+        if (o?.leftMs) {
+          const blocked = labChat.current?.blocked() ?? "demo mode";
+          outcome = { ...o, text: `${o.text} · ${blocked ? `viewer NOT told: ${blocked}` : "viewer gets a chat reply"}` };
+        }
+        bus.send("chat.result", {
+          forId: msg.id,
+          role: scene ? "scene" : "hud",
+          view: where,
+          visible: sceneVisible,
+          outcome,
+        });
+      });
+    });
+  }, [bus, depsRef, scene, where, sceneVisible, shoutout]);
 
   /* ── bus: status out ── */
   const hello = useCallback(() => {
@@ -582,9 +755,11 @@ export function OverlayApp({ params }: { params: OverlayParams }) {
       clipPlays: clips.clipPlays,
       clip: clips.snapshot,
       card: scene ? undefined : cardSnapshot(!cardsOn),
+      visible: sceneVisible,
+      visibleKnown: visKnown,
     };
     bus.send("hello", payload);
-  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, labNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot, cardSnapshot, cardsOn]);
+  }, [bus, scene, mode, demo, ircStatus, esStatus, followNotice, labNotice, notice, token, clientId, chill, t0, tallies.counts, poll.poll, settings, totals, clips.clipPlays, clips.snapshot, cardSnapshot, cardsOn, sceneVisible, visKnown]);
 
   useEffect(() => {
     if (!bus) return;

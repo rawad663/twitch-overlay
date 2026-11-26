@@ -1,7 +1,10 @@
 import { CONFIG } from "@/config/config";
-import type { AlertKind } from "@/bus/types";
+import type { AlertKind, CommandOutcome, SourceView } from "@/bus/types";
+import { formatLeft } from "../claim";
 import type { BalloonGlyph } from "./emotes";
 import type { ChatMessage, NoticeMessage, ParsedMessage } from "./parse";
+
+export type { CommandOutcome } from "@/bus/types";
 
 /**
  * Everything the command dispatcher is allowed to touch. Passing this in
@@ -11,6 +14,8 @@ import type { ChatMessage, NoticeMessage, ParsedMessage } from "./parse";
  */
 export type ChatDeps = {
   chill: boolean;
+  /** which layout this source draws — outcomes say what applies where */
+  where: SourceView;
   /** feed the moon / chat-energy meter */
   ping: () => void;
   /** a chatter becomes a named star; names only, never message text */
@@ -35,6 +40,7 @@ export type ChatDeps = {
     afk: () => void;
     back: () => void;
   };
+  /** rolls unconditionally — the per-viewer gate lives here in handle() */
   fate: (user: string) => void;
   fatePoe: (user: string) => void;
   say: (who: string, line: string) => void;
@@ -53,12 +59,16 @@ export type ChatDeps = {
   };
   /** true the first time this login speaks in the session */
   firstMessage: (login: string) => boolean;
-  /** per-viewer cooldown ledgers, keyed by command */
-  cooldown: (name: string, login: string, seconds: number) => boolean;
+  /** per-viewer ledgers: 0 = allowed (and the cooldown starts), else ms left */
+  cooldown: (name: string, login: string, seconds: number) => number;
   /** how much room is left before a full moon, so !moon can't complete one */
   moonHeadroom: () => number;
   /** play the least-shown clip; gates live in the hook, not here */
-  clip: (user: string, login: string, isMod: boolean) => void;
+  clip: (user: string, login: string, isMod: boolean, msgId: string) => CommandOutcome | Promise<CommandOutcome>;
+  /** answer !lab in chat (the replier serializes across sources) */
+  lab: (msgId: string) => CommandOutcome;
+  /** !so: their top clip, a "go check them out" card and a chat line — one source does it */
+  shoutout: (login: string, msgId: string) => CommandOutcome | Promise<CommandOutcome>;
 };
 
 export function handleNotice(m: NoticeMessage, deps: ChatDeps) {
@@ -85,12 +95,35 @@ export function handleNotice(m: NoticeMessage, deps: ChatDeps) {
   }
 }
 
-export function handle(m: ParsedMessage, deps: ChatDeps) {
-  if (m.kind === "notice") return handleNotice(m, deps);
+/**
+ * Null for anything that isn't a `!command`. Otherwise what this source did
+ * with it — the dock tester shows these, and a `leftMs` outcome is what a
+ * viewer gets told about in chat.
+ */
+export type HandleResult = CommandOutcome | Promise<CommandOutcome> | null;
+
+export function handle(m: ParsedMessage, deps: ChatDeps): HandleResult {
+  if (m.kind === "notice") {
+    handleNotice(m, deps);
+    return null;
+  }
   return handleChat(m, deps);
 }
 
-function handleChat(m: ChatMessage, deps: ChatDeps) {
+const MOD_WORDS = new Set([
+  "undo", "set", "poll", "endpoll", "say", "testalert", "brb", "soon", "afk", "back",
+]);
+
+const ok = (cmd: string, text: string): CommandOutcome => ({ cmd, ok: true, text });
+const no = (cmd: string, text: string): CommandOutcome => ({ cmd, ok: false, text });
+const waiting = (cmd: string, text: string, leftMs: number): CommandOutcome => ({
+  cmd,
+  ok: false,
+  text: `${text} — ${formatLeft(leftMs)} left`,
+  leftMs,
+});
+
+function handleChat(m: ChatMessage, deps: ChatDeps): HandleResult {
   deps.ping();
   deps.star(m.login, m.user);
   deps.vibe(m.msg);
@@ -104,7 +137,7 @@ function handleChat(m: ChatMessage, deps: ChatDeps) {
     deps.alerts.welcome(m.user);
   }
 
-  if (!m.msg.startsWith("!")) return;
+  if (!m.msg.startsWith("!")) return null;
   const [cmd, ...rest] = m.msg.slice(1).split(/\s+/);
   const arg = rest.join(" ");
   const c = (cmd ?? "").toLowerCase();
@@ -113,70 +146,105 @@ function handleChat(m: ChatMessage, deps: ChatDeps) {
      The chill commands sit ABOVE the mod gate on purpose: they're for chat,
      not for mods. They rely on `star()` having already placed the sender. */
 
-  if (c === "fate") return deps.fate(m.user);
-  if (c === "fatepoe") return deps.fatePoe(m.user);
+  if (c === "fate" || c === "fatepoe") {
+    // !fatepoe shares the !fate ledger on purpose
+    const left = deps.cooldown("fate", m.login, CONFIG.fateCooldown);
+    if (left) return waiting(c, `cooling down for ${m.user}`, left);
+    if (c === "fate") deps.fate(m.user);
+    else deps.fatePoe(m.user);
+    return ok(c, deps.where === "away" ? "rolled (banner shows on the HUD layered above)" : "rolled — banner queued");
+  }
 
-  if (c === "wave") {
-    if (deps.chill && deps.cooldown("wave", m.login, CONFIG.waveCooldown)) {
-      deps.scene.wave(m.user);
-    }
-    return;
-  }
-  if (c === "heart") {
-    if (deps.chill && deps.cooldown("heart", m.login, CONFIG.waveCooldown)) {
-      deps.scene.bloom(m.login);
-    }
-    return;
-  }
-  if (c === "moon") {
-    if (deps.chill && deps.cooldown("moon", m.login, CONFIG.moonCooldown)) {
+  if (c === "wave" || c === "heart" || c === "moon") {
+    if (!deps.chill) return no(c, "lounge (?mode=chill) only — ignored here");
+    const left =
+      c === "moon"
+        ? deps.cooldown("moon", m.login, CONFIG.moonCooldown)
+        : deps.cooldown(c, m.login, CONFIG.waveCooldown);
+    if (left) return waiting(c, `cooling down for ${m.user}`, left);
+    if (c === "wave") deps.scene.wave(m.user);
+    else if (c === "heart") deps.scene.bloom(m.login);
+    else {
       // always stop one short of full — chat still has to actually talk to land it
       const room = Math.min(CONFIG.moonNudge, deps.moonHeadroom());
       for (let i = 0; i < room; i++) deps.ping();
+      return ok(c, room ? `nudged the moon by ${room}` : "moon is one short of full — chat has to land it");
     }
-    return;
+    return ok(c, c === "wave" ? "shooting star sent" : "star bloomed");
   }
 
   if (c === "1" || c === "2") {
-    if (deps.poll.isOpen()) deps.poll.vote(m.login, c === "1" ? "a" : "b");
-    return;
+    if (!deps.poll.isOpen()) return no(c, "no poll open");
+    deps.poll.vote(m.login, c === "1" ? "a" : "b");
+    return ok(c, "vote counted (one per viewer)");
   }
 
-  if (c === "clip") return deps.clip(m.user, m.login, m.mod);
+  if (c === "clip") return deps.clip(m.user, m.login, m.mod, m.id);
+  if (c === "lab") return deps.lab(m.id);
+
+  // Rawad only — not mods: it plays audio over the stream and posts as the channel
+  if (c === "so") {
+    if (m.login !== CONFIG.channel) return no(c, "Rawad only");
+    const target = (rest[0] ?? "").replace(/^@/, "").toLowerCase();
+    if (!/^[a-z0-9_]{1,25}$/.test(target)) return no(c, "usage: !so <channel>");
+    if (target === CONFIG.channel) return no(c, "that's your own channel");
+    return deps.shoutout(target, m.id);
+  }
 
   /* ── mod / broadcaster only ── */
-  if (!m.mod) return;
+  const key = deps.tally.resolve(c);
+  if (!m.mod) return key || MOD_WORDS.has(c) ? no(c, "mods / broadcaster only") : no(c, "unknown command");
 
   // `!undo Maps` used to silently miss — the word is lowercased now
   const word = (rest[0] ?? "").toLowerCase();
 
-  const key = deps.tally.resolve(c);
-  if (key) return deps.tally.bump(key, 1);
+  if (key) {
+    deps.tally.bump(key, 1);
+    return ok(c, `${key} +1`);
+  }
 
   if (c === "undo") {
     const k = deps.tally.resolve(word);
-    if (k) deps.tally.bump(k, -1);
-    return;
+    if (!k) return no(c, `no tally called "${word}"`);
+    deps.tally.bump(k, -1);
+    return ok(c, `${k} −1`);
   }
   if (c === "set") {
     const k = deps.tally.resolve(word);
-    if (k) deps.tally.set(k, Math.max(0, parseInt(rest[1] ?? "", 10) || 0));
-    return;
+    if (!k) return no(c, `no tally called "${word}"`);
+    const v = Math.max(0, parseInt(rest[1] ?? "", 10) || 0);
+    deps.tally.set(k, v);
+    return ok(c, `${k} = ${v}`);
   }
 
   if (c === "poll") {
     const [q, a, b] = arg.split("|").map((x) => x.trim());
-    return deps.poll.open(q || "Yes or no?", a || "Yes", b || "No");
+    deps.poll.open(q || "Yes or no?", a || "Yes", b || "No");
+    return ok(c, "poll opened");
   }
   if (c === "endpoll") {
-    if (deps.poll.isOpen()) deps.poll.close();
-    return;
+    if (!deps.poll.isOpen()) return no(c, "no poll open");
+    deps.poll.close();
+    return ok(c, "poll closed");
   }
-  if (c === "say") return deps.say("Rawad says —", arg);
-  if (c === "testalert") return deps.testAlert((word || "sub") as AlertKind, m.user);
+  if (c === "say") {
+    deps.say("Rawad says —", arg);
+    return ok(c, "banner queued");
+  }
+  if (c === "testalert") {
+    deps.testAlert((word || "sub") as AlertKind, m.user);
+    return ok(c, `${word || "sub"} alert fired`);
+  }
 
-  if (c === "brb") return deps.scene.brb(rest[0]);
-  if (c === "soon") return deps.scene.soon(rest[0]);
-  if (c === "afk") return deps.scene.afk();
-  if (c === "back") return deps.scene.back();
+  if (c === "brb" || c === "soon" || c === "afk" || c === "back") {
+    if (deps.where === "chill") return no(c, "the lounge ignores away commands");
+    // the HUD has no scene, but it still runs these: it hands clips to the away scene
+    if (c === "brb") deps.scene.brb(rest[0]);
+    else if (c === "soon") deps.scene.soon(rest[0]);
+    else if (c === "afk") deps.scene.afk();
+    else deps.scene.back();
+    if (deps.where === "hud") return ok(c, c === "back" ? "HUD takes clips back" : "HUD hands clips to the away scene");
+    return ok(c, "away scene switched");
+  }
+  return no(c, "unknown command");
 }

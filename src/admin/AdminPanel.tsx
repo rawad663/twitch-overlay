@@ -21,6 +21,7 @@ import { Lab } from "./components/Lab";
 import { mergeSettings } from "@/config/settings";
 import { Clips } from "./components/Clips";
 import { Cards } from "./components/Cards";
+import { CommandTester } from "./components/CommandTester";
 
 export function AdminPanel() {
   // no role — the panel must never ack, or delivery confirmation is a lie
@@ -148,6 +149,8 @@ export function AdminPanel() {
         />
 
         <Cards card={live?.card} bus={bus} send={send} disabled={!connected} />
+
+        <CommandTester bus={bus} disabled={!connected} tallyDefs={settings.tallyDefs} />
 
         <Alerts
           onTest={(kind: AlertKind) => send("alert.test", { kind }, `Test ${kind}`)}

@@ -377,6 +377,123 @@ async function main() {
     await admin.close();
   }
 
+  /* ── one !clip, two sources on air: the HUD layered over starting-soon ──
+     Its own context, so storage starts empty: a moon left full by the demo
+     pages would hold every !clip behind its banner. */
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+    ctx.on("weberror", (e) => errors.push(String(e.error())));
+    // seeded after the dock hydrates: its Clips section reads storage in a useState initializer
+    const admin = await ctx.newPage();
+    admin.on("pageerror", (e) => errors.push(`clip-admin: ${e.message}`));
+    await admin.goto(url("admin/"), { waitUntil: "networkidle" });
+    await admin.evaluate(() => {
+      const clip = (slug) => ({ slug, title: slug, creator: "", duration: 20, thumb: "", enabled: true, addedAt: 1 });
+      localStorage.setItem("rawad-clips", JSON.stringify({ v: 1, clips: [clip("VerifyClipA"), clip("VerifyClipB")] }));
+      localStorage.removeItem("rawad-clip-limits");
+      localStorage.removeItem("rawad-claims");
+      localStorage.setItem("rawad-settings", JSON.stringify({ ...JSON.parse(localStorage.getItem("rawad-settings") || "{}"), clipsEnabled: true }));
+    });
+
+    const quiet = async (q, tag) => {
+      const p = await ctx.newPage();
+      p.on("pageerror", (e) => errors.push(`${tag}: ${e.message}`));
+      await p.routeWebSocket(/irc-ws\.chat\.twitch\.tv/, () => {});
+      await p.goto(url(q), { waitUntil: "networkidle" });
+      // the seeded slugs aren't real, so a card closes as soon as its video fails: count mounts instead
+      await p.evaluate(() => {
+        window.__clips = 0;
+        new MutationObserver((ms) => {
+          for (const m of ms) for (const n of m.addedNodes)
+            if (n instanceof Element && (n.matches('[class*="clipChip"]') || n.querySelector('[class*="clipChip"]'))) window.__clips++;
+        }).observe(document.body, { childList: true, subtree: true });
+      });
+      return p;
+    };
+    const hud = await quiet("?live=1", "clip-hud");
+    const soon = await quiet("?mode=soon&min=10&live=1", "clip-soon");
+    await admin.waitForTimeout(2500);
+
+    const runTest = async (line, { mod = false, user = "test_viewer" } = {}) => {
+      await admin.fill("#testLine", line);
+      await admin.fill('[aria-label="Viewer name"]', user);
+      const box = admin.getByLabel("As mod");
+      if ((await box.isChecked()) !== mod) await box.click();
+      await admin.getByRole("button", { name: "Run", exact: true }).click();
+      await admin.waitForTimeout(1900);
+      return (await admin.locator('[class*="verdict"]', { hasText: line }).first().textContent()) ?? "";
+    };
+    const chips = async (p) => p.evaluate(() => {
+      const n = window.__clips;
+      window.__clips = 0;
+      return n;
+    });
+
+    // Over gameplay a viewer's !clip is refused — and the HUD's refusal is final:
+    // the away source, which can't prove it's hidden, must not play it instead.
+    const r0 = await runTest("!clip");
+    const [h0, s0] = [await chips(hud), await chips(soon)];
+    check("viewer !clip over gameplay is mods-only", /HUD✕ over gameplay, !clip is for mods/.test(r0), r0.slice(0, 140));
+    check("a refused HUD !clip plays nowhere", h0 + s0 === 0, `HUD ${h0} · away ${s0}`);
+
+    const so1 = await runTest("!so friend");
+    check("!so is Rawad only", /Rawad only/.test(so1), so1.slice(0, 100));
+    const so2 = await runTest("!so friend", { user: "rawad663" });
+    check("!so as Rawad reaches the lookup", /HUD✕ needs the Twitch sign-in/.test(so2), so2.slice(0, 140));
+
+    // Neither source has been told anything by OBS: the claim alone keeps it to one.
+    const r1 = await runTest("!clip", { mod: true });
+    check("tester lists both sources for !clip", /HUD/.test(r1) && /Away scene/.test(r1), r1.slice(0, 120));
+    const [h1, s1] = [await chips(hud), await chips(soon)];
+    check("unconfirmed scene: one !clip plays exactly once", h1 + s1 === 1, `HUD ${h1} · away ${s1}`);
+    check("unconfirmed scene: the HUD wins the claim", h1 === 1);
+
+    const r2 = await runTest("!clip", { mod: true });
+    check("second !clip names the gate that held it", /already playing|cooldown/.test(r2), r2.slice(0, 140));
+
+    // OBS confirms the away source on air (what a scene switch does) — the HUD yields.
+    await hud.evaluate(() => localStorage.removeItem("rawad-clip-limits"));
+    await soon.evaluate(() => window.dispatchEvent(new CustomEvent("obsSourceVisibleChanged", { detail: { visible: true } })));
+    await admin.waitForTimeout(2500);
+    await chips(hud);
+    await chips(soon);
+    const r3 = await runTest("!clip", { mod: true });
+    const [h3, s3] = [await chips(hud), await chips(soon)];
+    check("HUD stands down once the away scene is confirmed on air", /HUD✕ another source has the clips/.test(r3), r3.slice(0, 120));
+    check("confirmed scene: one !clip plays exactly once, on the away scene", s3 === 1 && h3 === 0, `HUD ${h3} · away ${s3}`);
+
+    const r4 = await runTest("!wave");
+    check("tester says !wave is lounge-only", /lounge/.test(r4), r4.slice(0, 120));
+    await runTest("!fate");
+    const r5 = await runTest("!fate");
+    check("tester shows a !fate cooldown with time left", /cooling down for test_viewer — \d/.test(r5), r5.slice(0, 140));
+    check("tester says why the viewer isn't told in chat", /viewer NOT told/.test(r5), r5.slice(0, 200));
+    const r6 = await runTest("!maps");
+    check("tester says tallies are mods-only", /mods \/ broadcaster only/.test(r6), r6.slice(0, 120));
+
+    // the command list: each row's Test runs as whoever may use it
+    const rowRun = async (usage) => {
+      await admin.getByRole("button", { name: `Test ${usage}`, exact: true }).click();
+      await admin.waitForTimeout(1900);
+      return (await admin.locator('[class*="cmdRow"]', { hasText: usage }).first().textContent()) ?? "";
+    };
+    const rows = await admin.locator('[class*="cmdRow"]').count();
+    check("dock lists the commands, tallies included", rows >= 18 && (await admin.locator('[class*="cmdName"]', { hasText: "!mirrors" }).count()) === 1, `${rows} rows`);
+    const heads = await admin.locator('[class*="cmdGroupHead"]').allTextContents();
+    check("commands are grouped by who can run them", heads.join("|") === "Anyone|Mods and you|You only", heads.join("|"));
+    const rm = await rowRun("!mirrors");
+    check("row Test runs a mod command as a mod", /Ran !mirrors/.test(rm) && /✓ mirrors \+1/.test(rm), rm.slice(0, 160));
+    await admin.getByRole("button", { name: "Viewer", exact: true }).click();
+    const rv = await rowRun("!mirrors");
+    check("“Viewer” checks the command is refused", /mods \/ broadcaster only/.test(rv), rv.slice(0, 160));
+    await admin.getByRole("button", { name: "Who can", exact: true }).click();
+    await admin.getByRole("button", { name: "Test !so <channel>", exact: true }).click();
+    check("!so row hands you the line to finish", (await admin.inputValue("#testLine")) === "!so " && (await admin.inputValue('[aria-label="Viewer name"]')) === "rawad663");
+    if (SHOTS) await admin.locator("section", { hasText: "Every command, who can use it" }).screenshot({ path: join(ROOT, ".verify", "commands.png") });
+
+    await ctx.close();
+  }
+
   check("no uncaught page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 
   await browser.close();
