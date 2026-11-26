@@ -17,7 +17,7 @@ export const CLIP_PLAYS_KEY = "rawad-clip-plays";
 export const CARDS_KEY = "rawad-cards";
 
 /** Bumped only when the send/deliver contract changes. Shown in diagnostics. */
-export const BUILD = "bus-5";
+export const BUILD = "bus-6";
 
 export type FollowStatus = "off" | "connecting" | "live" | "expired" | "error";
 export type FollowSnapshot = {
@@ -190,6 +190,31 @@ export type HelloPayload = {
   clip: ClipSnapshot;
   /** HUD only — scene sources don't mount the support card. */
   card?: CardSnapshot;
+  /**
+   * OBS only tells a page about visibility when it CHANGES, so a source in an
+   * inactive scene still believes it is visible after load. `visibleKnown`
+   * is true once an OBS event has actually confirmed `visible`; the HUD only
+   * yields clips to a scene source that has been confirmed on air.
+   */
+  visible?: boolean;
+  visibleKnown?: boolean;
+};
+
+export type SourceView = "hud" | "away" | "chill";
+
+/** What one source did with one `!command`. `leftMs` means a timer is holding it. */
+export type CommandOutcome = { cmd: string; ok: boolean; text: string; leftMs?: number };
+
+/** Dock → sources: run this line through the real chat path, as this viewer. */
+export type ChatTestPayload = { text: string; user: string; mod: boolean };
+
+/** Sources → dock: each source's answer to one `chat.test`. */
+export type ChatResultPayload = {
+  forId: string;
+  role: BusRole;
+  view: SourceView;
+  visible: boolean;
+  outcome: CommandOutcome | null;
 };
 
 export type AckPayload = { forId: string; forType: string; role?: BusRole };
@@ -241,6 +266,8 @@ export type BusPayloads = {
   "card.show": { id: string };
   "card.next": Record<string, never>;
   ping: Record<string, never>;
+  "chat.test": ChatTestPayload;
+  "chat.result": ChatResultPayload;
   hello: HelloPayload;
   ack: AckPayload;
 };

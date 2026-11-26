@@ -7,6 +7,7 @@ function makeDeps(over: Partial<ChatDeps> = {}): ChatDeps {
   const seen = new Set<string>();
   return {
     chill: false,
+    where: "hud",
     ping: vi.fn(),
     star: vi.fn(),
     vibe: vi.fn(),
@@ -42,9 +43,11 @@ function makeDeps(over: Partial<ChatDeps> = {}): ChatDeps {
       seen.add(l);
       return true;
     },
-    cooldown: () => true,
+    cooldown: () => 0,
     moonHeadroom: () => 99,
     clip: vi.fn(),
+    lab: vi.fn(() => ({ cmd: "lab", ok: true, text: "replying in chat" })),
+    shoutout: vi.fn(() => ({ cmd: "so", ok: true, text: "shoutout" })),
     ...over,
   };
 }
@@ -131,7 +134,7 @@ describe("handle — open to everyone", () => {
   });
 
   it("honours the per-viewer cooldown", () => {
-    const d = makeDeps({ chill: true, cooldown: () => false });
+    const d = makeDeps({ chill: true, cooldown: () => 5000 });
     handle(chat("!wave"), d);
     expect(d.scene.wave).not.toHaveBeenCalled();
   });
@@ -139,13 +142,13 @@ describe("handle — open to everyone", () => {
   it("lets a non-mod request !clip", () => {
     const d = makeDeps();
     handle(chat("!clip"), d);
-    expect(d.clip).toHaveBeenCalledWith("wick", "wick", false);
+    expect(d.clip).toHaveBeenCalledWith("wick", "wick", false, "");
   });
 
   it("tells !clip when the sender is a mod", () => {
     const d = makeDeps();
     handle(chat("!clip", { mod: true }), d);
-    expect(d.clip).toHaveBeenCalledWith("wick", "wick", true);
+    expect(d.clip).toHaveBeenCalledWith("wick", "wick", true, "");
   });
 
   it("counts a poll vote once per login", () => {
@@ -262,5 +265,86 @@ describe("handle — usernotices", () => {
       d,
     );
     expect(d.alerts.raid).toHaveBeenCalledWith("Raider", "137");
+  });
+});
+
+describe("handle — outcomes", () => {
+  it("returns null for plain chat and an outcome for every command", () => {
+    const d = makeDeps();
+    expect(handle(chat("hello"), d)).toBeNull();
+    expect(handle(chat("!nope"), d)).toMatchObject({ cmd: "nope", ok: false, text: "unknown command" });
+  });
+
+  it("reports a cooldown with the time left, and does not roll", () => {
+    const d = makeDeps({ cooldown: () => 42_000 });
+    const o = handle(chat("!fate"), d);
+    expect(o).toMatchObject({ cmd: "fate", ok: false, leftMs: 42_000 });
+    expect(d.fate).not.toHaveBeenCalled();
+  });
+
+  it("!fatepoe shares the !fate ledger", () => {
+    const names: string[] = [];
+    const d = makeDeps({ cooldown: (n) => (names.push(n), 0) });
+    handle(chat("!fatepoe"), d);
+    expect(names).toEqual(["fate"]);
+  });
+
+  it("says the chill commands are lounge-only outside chill", () => {
+    expect(handle(chat("!wave"), makeDeps())).toMatchObject({ ok: false, text: expect.stringMatching(/lounge/) });
+  });
+
+  it("tells a viewer a mod command is mods-only", () => {
+    expect(handle(chat("!maps"), makeDeps())).toMatchObject({ ok: false, text: "mods / broadcaster only" });
+    expect(handle(chat("!brb"), makeDeps())).toMatchObject({ ok: false, text: "mods / broadcaster only" });
+  });
+
+  it("routes !lab with trailing words, and with a client's invisible repeat marker", () => {
+    const d = makeDeps();
+    handle(chat("!lab what is it"), d);
+    handle(chat("!lab \u{E0000}"), d);
+    handle(chat("!lab\u{E0000}"), d);
+    expect(d.lab).toHaveBeenCalledTimes(3);
+  });
+
+  it("passes the Twitch message id to !clip and !lab", () => {
+    const d = makeDeps();
+    const m = parse("@badges=;display-name=wick;id=abc-123;mod=0 :wick!x@x.tmi.twitch.tv PRIVMSG #rawad663 :!clip")!;
+    handle(m, d);
+    expect(d.clip).toHaveBeenCalledWith("wick", "wick", false, "abc-123");
+  });
+
+  it("lets the HUD run away commands so it can hand clips over", () => {
+    const d = makeDeps({ where: "hud" });
+    expect(handle(chat("!brb 5", { mod: true }), d)).toMatchObject({ ok: true });
+    expect(d.scene.brb).toHaveBeenCalledWith("5");
+    const c = makeDeps({ where: "chill", chill: true });
+    expect(handle(chat("!brb", { mod: true }), c)).toMatchObject({ ok: false });
+    expect(c.scene.brb).not.toHaveBeenCalled();
+  });
+});
+
+describe("handle — !so", () => {
+  const broadcaster = (msg: string) =>
+    parse(`@badges=broadcaster/1;display-name=Rawad663;id=m9;mod=0 :rawad663!x@x.tmi.twitch.tv PRIVMSG #rawad663 :${msg}`)!;
+
+  it("is Rawad's alone — not even mods", () => {
+    const d = makeDeps();
+    expect(handle(chat("!so friend", { mod: true }), d)).toMatchObject({ ok: false, text: "Rawad only" });
+    expect(handle(chat("!so friend"), d)).toMatchObject({ ok: false, text: "Rawad only" });
+    expect(d.shoutout).not.toHaveBeenCalled();
+  });
+
+  it("takes the channel with or without @, lowercased, with the message id", () => {
+    const d = makeDeps();
+    handle(broadcaster("!so @FriendlyStreamer"), d);
+    expect(d.shoutout).toHaveBeenCalledWith("friendlystreamer", "m9");
+  });
+
+  it("refuses a missing or malformed channel, and your own", () => {
+    const d = makeDeps();
+    expect(handle(broadcaster("!so"), d)).toMatchObject({ ok: false, text: expect.stringMatching(/usage/) });
+    expect(handle(broadcaster("!so not-a-login!"), d)).toMatchObject({ ok: false });
+    expect(handle(broadcaster("!so rawad663"), d)).toMatchObject({ ok: false });
+    expect(d.shoutout).not.toHaveBeenCalled();
   });
 });

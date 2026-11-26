@@ -3,6 +3,8 @@ import { extractBalloons, type BalloonGlyph } from "./emotes";
 
 export type ChatMessage = {
   kind: "chat";
+  /** Twitch's message id — identical in every source, so it keys cross-source claims and threaded replies */
+  id: string;
   bits: number;
   login: string;
   user: string;
@@ -26,6 +28,12 @@ const UNTAG: Record<string, string> = { s: " ", ":": ";", r: "\r", n: "\n", "\\"
 export function untag(v: string): string {
   return String(v).replace(/\\(.)/g, (_, c: string) => UNTAG[c] ?? c);
 }
+
+/* Chatterino / 7TV append U+E0000 (some clients a zero-width char) so a
+   repeated line slips past Twitch's duplicate filter. Left in, a second
+   `!lab` stopped matching. Only the command text is cleaned; emote offsets
+   still index the raw body. */
+const INVISIBLE = /[\u{E0000}͏​-‍⁠﻿]/gu;
 
 export function parse(raw: string): ParsedMessage | null {
   const tags: Record<string, string> = {};
@@ -58,10 +66,11 @@ export function parse(raw: string): ParsedMessage | null {
   const body = m[2]!.replace(/[\u0001\r\n]/g, "");
   return {
     kind: "chat",
+    id: tags["id"] ?? "",
     bits: parseInt(tags["bits"] ?? "", 10) || 0,
     login: m[1]!,
     user: tags["display-name"] || m[1]!,
-    msg: body.trim(),
+    msg: body.replace(INVISIBLE, "").trim(),
     mod: tags["mod"] === "1" || /broadcaster|moderator/.test(badges),
     glyphs: extractBalloons(body, tags["emotes"] ?? "", CONFIG.balloonPerMessage),
   };

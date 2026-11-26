@@ -111,3 +111,57 @@ export async function fetchSubBadges(auth: Auth, login: string): Promise<SubBadg
     return [];
   }
 }
+
+export type ShoutoutInfo = {
+  login: string;
+  name: string;
+  /** what they were last streaming; "" when the channel has never set one */
+  game: string;
+  /** their most-viewed clip of the last 30 days, else all-time; null when they have none */
+  clip: { slug: string; title: string; duration: number } | null;
+};
+
+type HelixClip = { id?: string; title?: string; duration?: number; view_count?: number };
+
+function topClip(list: HelixClip[] | undefined): ShoutoutInfo["clip"] {
+  const best = [...(list ?? [])]
+    .filter((c) => typeof c.id === "string" && c.id)
+    .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))[0];
+  if (!best?.id) return null;
+  const duration = Number(best.duration);
+  return {
+    slug: best.id,
+    title: String(best.title ?? "").trim().slice(0, 80) || best.id,
+    duration: Number.isFinite(duration) && duration > 0 ? Math.max(1, Math.round(duration)) : 30,
+  };
+}
+
+/** Everything !so needs about a channel. Null when no such user exists or Twitch can't be reached. */
+export async function fetchShoutout(auth: Auth, login: string, now = Date.now()): Promise<ShoutoutInfo | null> {
+  try {
+    const u = await helix(auth, "users?login=" + encodeURIComponent(login));
+    if (!u.ok) return null;
+    const uj = (await u.json()) as { data?: Array<{ id?: string; login?: string; display_name?: string }> };
+    const user = uj.data?.[0];
+    if (!user?.id) return null;
+    const id = encodeURIComponent(user.id);
+
+    const since = new Date(now - 30 * 86_400_000).toISOString();
+    const [ch, recent] = await Promise.all([
+      helix(auth, "channels?broadcaster_id=" + id),
+      helix(auth, `clips?broadcaster_id=${id}&first=20&started_at=${encodeURIComponent(since)}`),
+    ]);
+    const game = ch.ok
+      ? String(((await ch.json()) as { data?: Array<{ game_name?: string }> }).data?.[0]?.game_name ?? "").slice(0, 60)
+      : "";
+    let clip = recent.ok ? topClip(((await recent.json()) as { data?: HelixClip[] }).data) : null;
+    if (!clip) {
+      const all = await helix(auth, `clips?broadcaster_id=${id}&first=20`);
+      if (all.ok) clip = topClip(((await all.json()) as { data?: HelixClip[] }).data);
+    }
+    const name = String(user.display_name || user.login || login).slice(0, 32);
+    return { login: String(user.login || login).toLowerCase(), name, game, clip };
+  } catch {
+    return null;
+  }
+}

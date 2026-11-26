@@ -85,8 +85,20 @@ export function ClipPlayer({
       style={{ left: rect[0], top: rect[1], width: rect[2], height: rect[3] }}
     >
       <div className={s.clipChip}>
-        <div className={s.clipTitle}>{clip.title}</div>
-        <div className={s.clipBy}>requested by {clip.user}</div>
+        {clip.shoutout ? (
+          <>
+            <div className={s.clipTitle}>Go check out {clip.shoutout.name}</div>
+            <div className={s.clipBy}>
+              twitch.tv/{clip.shoutout.login}
+              {clip.shoutout.game ? ` · ${clip.shoutout.game}` : ""}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={s.clipTitle}>{clip.title}</div>
+            <div className={s.clipBy}>requested by {clip.user}</div>
+          </>
+        )}
       </div>
       <div className={s.clipFrame}>
         {src && (

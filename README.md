@@ -83,7 +83,8 @@ Outside OBS the overlay auto-demos unless you pass `?live=1`. Saved dock setting
 | `!wave` | **Chill only** — comet across the sky with your name |
 | `!heart` | **Chill only** — bloom your own star |
 | `!moon` | **Chill only** — nudge the chat-energy ring |
-| `!clip` | Play the least-shown clip from the dock library |
+| `!clip` | Play the least-shown clip from the dock library. Over gameplay (the HUD) only mods and Rawad can; on the away / lounge scene anyone can |
+| `!lab` | Today's lab, answered in chat (shared 15s cooldown) |
 
 **Mod / broadcaster**
 
@@ -98,6 +99,32 @@ Outside OBS the overlay auto-demos unless you pass `?live=1`. Saved dock setting
 | `!testalert [kind]` | Fake alert (`follow`, `welcome`, `sub`, `raid`, `burst`, …) |
 | `!brb [minutes]` / `!soon [minutes]` / `!afk` / `!back` | Away state |
 
+**Rawad only**
+
+| Command | Action |
+|---|---|
+| `!so <channel>` | Shoutout: plays their most-viewed clip of the last 30 days (all-time if none), with audio, wherever clips go right now, under a "Go check out <name>" card, and posts "Go check out <name> at https://twitch.tv/<name> — they were last playing <game>!" in chat. No clips → a banner instead. Cuts in over a playing `!clip` and skips its limits. Needs the Twitch sign-in; the chat line needs `user:write:chat` like `!lab` |
+
+When a command is held by a cooldown, the viewer gets a reply in chat under their message ("@name !clip is on cooldown — try again in 1:42"), at most once per command per minute. It is sent as the channel through the same Twitch sign-in as `!lab`, so it needs the `user:write:chat` scope too.
+
+### Where each command works
+
+| Command | HUD (gameplay) | Away (brb / soon / afk) | Lounge (`?mode=chill`) |
+|---|---|---|---|
+| `!clip` | mods and Rawad only, unless an away scene is on air | anyone, over the moon | anyone, over the moon |
+| `!so <channel>` | Rawad — plays on the HUD | plays over the moon | plays over the moon |
+| `!lab` | replies in chat from whichever source is open | ← same | ← same |
+| `!fate` / `!fatepoe` | banner | via the HUD layered on top | banner |
+| `!wave` / `!heart` / `!moon` | — | — | yes |
+| `!1` / `!2`, `!poll`, tallies | shown on the HUD | via the HUD | — |
+| `!brb` / `!soon` / `!afk` / `!back` | hands clips over | switches the scene | ignored |
+
+One `!clip` plays on exactly one source, even with the HUD layered over the away scene.
+
+### Testing commands
+
+The dock's **Commands** section lists every chat command, grouped by who can run it (anyone / mods and you / you only), with what it does and where it works. Each row's **Test** runs it as someone allowed to; switch *Test as* to **Viewer** to check a command is refused. Any line can also be typed in by hand. Every test runs through every open source's real command path and lists what each one did, and why not when it didn't ("channel cooldown — 1:42 left", "an alert banner is on screen", "mods / broadcaster only", "no enabled clips in the dock library"…). Pick a viewer name and tick **As mod** to test either side of the mod gate. A test `!clip` really plays and really starts the cooldown; `!lab` and cooldown replies are checked but not posted to chat. If no source answers, the sources are running an old bundle: **Refresh cache of current page** on each.
+
 ## Emoji balloons
 
 Unicode emoji and Twitch emotes in chat float up from the bottom of the overlay as short-lived balloons — automatic, no command. Caps live in `CONFIG` (`balloonPerMessage`, `balloonMax`). The dock's **Balloons** button (or `!testalert balloon`) fires a burst. Third-party emotes (7TV / BTTV / FFZ) are not included.
@@ -106,7 +133,9 @@ Unicode emoji and Twitch emotes in chat float up from the bottom of the overlay 
 
 The dock's **Clips** section holds a rotation of Twitch clip links. Chat types `!clip` to play the one shown least often, as a picture-in-picture card. During gameplay the HUD plays it top right, under the lab card, covering the minimap while it runs. On the AFK / BRB / starting-soon or lounge source it plays over the moon. While `!brb` / `!soon` / `!afk` is up the HUD stands down, because it is layered over the away scene and the two would otherwise play together; `!back` hands clips back to the HUD.
 
-Limits (in `CONFIG`): 2 minutes between any two clips, 15 minutes per viewer (mods skip that one), 8 per rolling hour. `!clip` is ignored while a clip is already up, while a banner or poll is showing, when the library is empty, or when the dock rotation switch is off. The away / lounge prompt only mentions `!clip` when something is actually in rotation.
+Limits (in `CONFIG`): 2 minutes between any two clips, 15 minutes per viewer (mods skip that one), 8 per rolling hour. `!clip` is ignored while a clip is already up, while a banner or poll is showing, when the library is empty, or when the dock rotation switch is off; the dock's **Commands** says which. The 2-minute and hourly limits are shared across sources.
+
+The HUD also stands down on its own when OBS shows an away or lounge source (a scene switch, not just the dock buttons). Each request is claimed across sources, so even when OBS hasn't reported visibility yet, a `!clip` plays only once. The away / lounge prompt only mentions `!clip` when something is actually in rotation.
 
 Paste `clips.twitch.tv/…`, `twitch.tv/<chan>/clip/…`, or a bare slug. The HUD (the source with the token) fills in title and duration over the bus so the card knows when to leave.
 

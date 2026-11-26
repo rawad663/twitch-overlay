@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClipEntry, ClipPlays } from "@/bus/types";
-import { clipAllowed, pickClip, type ClipGate } from "./select";
+import { clipBlock, pickClip, type ClipGate } from "./select";
 
 function clip(slug: string, enabled = true): ClipEntry {
   return {
@@ -74,35 +74,52 @@ describe("pickClip", () => {
   });
 });
 
-describe("clipAllowed", () => {
+describe("clipBlock", () => {
   it("allows a clean request on a visible source", () => {
-    expect(clipAllowed(gate())).toBe(true);
+    expect(clipBlock(gate())).toBeNull();
   });
 
   it("rejects a source that has stood down and a hidden source", () => {
-    expect(clipAllowed(gate({ canShow: false }))).toBe(false);
-    expect(clipAllowed(gate({ visible: false }))).toBe(false);
+    expect(clipBlock(gate({ canShow: false }))).not.toBeNull();
+    expect(clipBlock(gate({ visible: false }))).not.toBeNull();
   });
 
   it("rejects while a clip, banner or poll is up", () => {
-    expect(clipAllowed(gate({ playing: true }))).toBe(false);
-    expect(clipAllowed(gate({ bannerActive: true }))).toBe(false);
-    expect(clipAllowed(gate({ pollOpen: true }))).toBe(false);
+    expect(clipBlock(gate({ playing: true }))).not.toBeNull();
+    expect(clipBlock(gate({ bannerActive: true }))).not.toBeNull();
+    expect(clipBlock(gate({ pollOpen: true }))).not.toBeNull();
   });
 
   it("rejects an empty library or a killed switch", () => {
-    expect(clipAllowed(gate({ librarySize: 0 }))).toBe(false);
-    expect(clipAllowed(gate({ clipsEnabled: false }))).toBe(false);
+    expect(clipBlock(gate({ librarySize: 0 }))).not.toBeNull();
+    expect(clipBlock(gate({ clipsEnabled: false }))).not.toBeNull();
   });
 
   it("honours the global cooldown", () => {
-    expect(clipAllowed(gate({ now: 50_000, lastGlobalAt: 40_000, clipCooldown: 120 }))).toBe(false);
-    expect(clipAllowed(gate({ now: 200_000, lastGlobalAt: 40_000, clipCooldown: 120 }))).toBe(true);
+    expect(clipBlock(gate({ now: 50_000, lastGlobalAt: 40_000, clipCooldown: 120 }))).not.toBeNull();
+    expect(clipBlock(gate({ now: 200_000, lastGlobalAt: 40_000, clipCooldown: 120 }))).toBeNull();
   });
 
   it("honours the rolling hourly cap", () => {
     const hourlyAt = Array.from({ length: 8 }, (_, i) => 9_000 - i * 1_000);
-    expect(clipAllowed(gate({ hourlyAt, clipHourlyCap: 8 }))).toBe(false);
-    expect(clipAllowed(gate({ hourlyAt: hourlyAt.slice(1), clipHourlyCap: 8 }))).toBe(true);
+    expect(clipBlock(gate({ hourlyAt, clipHourlyCap: 8 }))).not.toBeNull();
+    expect(clipBlock(gate({ hourlyAt: hourlyAt.slice(1), clipHourlyCap: 8 }))).toBeNull();
+  });
+});
+
+describe("clipBlock — reasons", () => {
+  it("says which gate held it, with time left for the timers", () => {
+    expect(clipBlock(gate({ canShow: false }))?.text).toMatch(/another source/);
+    expect(clipBlock(gate({ librarySize: 0 }))?.text).toMatch(/no enabled clips/);
+    const cd = clipBlock(gate({ now: 50_000, lastGlobalAt: 40_000, clipCooldown: 120 }));
+    expect(cd?.leftMs).toBe(110_000);
+    expect(cd?.text).toMatch(/1:50 left/);
+    const hourlyAt = Array.from({ length: 8 }, (_, i) => 9_000 - i * 1_000);
+    expect(clipBlock(gate({ hourlyAt, clipHourlyCap: 8 }))?.leftMs).toBe(3_600_000 - (200_000 - 2_000));
+  });
+
+  it("gives no leftMs for gates a viewer can't wait out", () => {
+    expect(clipBlock(gate({ bannerActive: true }))?.leftMs).toBeUndefined();
+    expect(clipBlock(gate({ visible: false }))?.leftMs).toBeUndefined();
   });
 });
